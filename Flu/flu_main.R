@@ -223,11 +223,11 @@ include_fips <- intersect(US_county_shape$GEOID, county_flu_ac_season_norm$count
 # Construct centroid coordinates
 
 
-cent_coord <- US_county_shape%>% subset(.,GEOID %in% include_fips) %>%
-  st_geometry() %>%
-  st_centroid() %>%
-  st_coordinates()
-names(cent_coord) <- US_county_shape$GEOID
+# cent_coord <- US_county_shape%>% subset(.,GEOID %in% include_fips) %>%
+#   st_geometry() %>%
+#   st_centroid() %>%
+#   st_coordinates()
+# names(cent_coord) <- US_county_shape$GEOID
 
 
 
@@ -333,60 +333,118 @@ flu_norm_ts <- as.matrix(flu_norm_ts_df)
 
 #   Massachusetts state submodel ------------------------------------------
 
-flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
-
-flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
+# flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
+# 
+# flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 
 # res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
 
 #centroids for MA 
-MA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="MA")
-cent_coord_MA <-  MA_county_shape %>%
-  st_geometry() %>%
-  st_centroid() %>%
-  st_coordinates()
-rownames(cent_coord_MA) <- MA_county_shape$GEOID
+# MA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="MA")
+# cent_coord_MA <-  MA_county_shape %>%
+#   st_geometry() %>%
+#   st_centroid() %>%
+#   st_coordinates()
+# rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 
 # KNN for MA --------------------------------------------------------------
 
-knn_best <- list()
+# knn_best_MA <- list()
+# 
+# for (k in seq(1, 13, by = 1)) {
+#   # create nb list
+#   nb_knn <- knearneigh(x = cent_coord_MA,
+#                        k = k,
+#                        longlat = TRUE) %>%
+#     knn2nb(row.names = cent_coord_MA %>% row.names())
+# 
+#   # Create igraph from adjacency matrix
+#   flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
+#     graph_from_data_frame(directed = FALSE) %>%
+#     igraph::simplify()
+# 
+#   # create GNAR object
+#   flu_net_knn <- flu_net_knn_igraph %>%
+#     igraphtoGNAR()
+# 
+#   # create ordered county index data frame
+#   county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
+#                                    V() %>%
+#                                    names(),
+#                                  "index" = seq(1, 14))
+# 
+#   # compute an upper limit for neighbourhood stage
+#   max_SPL_knn <- flu_net_knn_igraph %>%
+#     get_diameter(directed = FALSE) %>%
+#     length()
+# 
+#   # fit GNAR models and select the best performing one for each data subset
+#   res <- fit_and_predict_for_many(net = flu_net_knn,
+#                                           upper_limit = max_SPL_knn - 1,
+#                                           vts = flu_norm_ts_MA)
+# 
+#   res$hyperparam <- k
+# 
+#   # save best performing model for every k across all data subsets
+#   knn_best[[length(knn_best) + 1]] <- res
+# 
+# }
 
-for (k in seq(1, 13, by = 1)) {
+
+
+
+# Submodel for FL ---------------------------------------------------------
+
+flu_norm_ts_df_FL <- flu_norm_ts_df %>% select(starts_with("12"))
+flu_norm_ts_FL <- as.matrix(flu_norm_ts_df_FL)
+
+FL_county_shape <- US_county_shape %>% subset(.,GEOID %in% include_fips & STUSPS=="FL")
+cent_coord_FL <-  FL_county_shape %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates()
+rownames(cent_coord_FL) <- FL_county_shape$GEOID
+
+
+knn_best_FL <- list()
+for (k in seq(1, 66, by = 2)) {
   # create nb list
-  nb_knn <- knearneigh(x = cent_coord_MA,
+  nb_knn <- knearneigh(x = cent_coord_FL,
                        k = k,
                        longlat = TRUE) %>%
-    knn2nb(row.names = cent_coord_MA %>% row.names())
-
+    knn2nb(row.names = cent_coord_FL %>% row.names())
+  
   # Create igraph from adjacency matrix
   flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
     graph_from_data_frame(directed = FALSE) %>%
     igraph::simplify()
-
+  
   # create GNAR object
   flu_net_knn <- flu_net_knn_igraph %>%
     igraphtoGNAR()
-
+  
   # create ordered county index data frame
   county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
                                    V() %>%
                                    names(),
-                                 "index" = seq(1, 14))
-
+                                 "index" = seq(1, 67))
+  
   # compute an upper limit for neighbourhood stage
   max_SPL_knn <- flu_net_knn_igraph %>%
     get_diameter(directed = FALSE) %>%
     length()
-
+}
+for (k in seq(1, 66, by = 2)) {
   # fit GNAR models and select the best performing one for each data subset
   res <- fit_and_predict_for_many(net = flu_net_knn,
-                                          upper_limit = max_SPL_knn - 1,
-                                          vts = flu_norm_ts_MA)
-
+                                  upper_limit = max_SPL_knn - 1,
+                                  vts = flu_norm_ts_FL, weight_factor = NULL, inverse_distance = F)
+  
   res$hyperparam <- k
-
+  
   # save best performing model for every k across all data subsets
   knn_best[[length(knn_best) + 1]] <- res
-
+  
 }
+

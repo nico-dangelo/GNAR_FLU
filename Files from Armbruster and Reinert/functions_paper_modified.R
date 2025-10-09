@@ -6,10 +6,10 @@ fit_and_predict <- function(alpha, beta,
                             
                             # if not NULL, coefficients are computed for 
                             # vertex classes  
-                            # weight_factor = NULL, 
+                            weight_factor = NULL, 
                             
                             # if TRUE, fits INV-D weighting 
-                            # inverse_distance = TRUE, 
+                            inverse_distance = TRUE,
                             
                            
                             
