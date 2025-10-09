@@ -10,6 +10,7 @@ library(GNAR)
 library(igraph)
 library(spdep)
 library(sf)
+library(sp)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -304,27 +305,34 @@ neighborsDataFrame <- function(nb) {
 
 
 #test knn for GNAR workflow
-knn_2<- knearneigh(x = cent_coord,
-                   k = 2,
-                   longlat = TRUE) %>% 
-  knn2nb(row.names = cent_coord %>% row.names())
-
-knn_2_igraph <- neighborsDataFrame(knn_2) %>% 
-  igraph::graph_from_data_frame(directed = FALSE) %>% 
-  igraph::simplify() 
-
-knn2_GNAR <- knn_2_igraph%>% igraphtoGNAR()
+# knn_2<- knearneigh(x = cent_coord,
+#                    k = 2,
+#                    longlat = TRUE) %>% 
+#   knn2nb(row.names = cent_coord %>% row.names())
+# 
+# knn_2_igraph <- neighborsDataFrame(knn_2) %>% 
+#   igraph::graph_from_data_frame(directed = FALSE) %>% 
+#   igraph::simplify() 
+# 
+# knn2_GNAR <- knn_2_igraph%>% igraphtoGNAR()
 
 # upper limit on neighborhood stage
 
-max_SPL_knn_2 <- knn_2_igraph %>% get_diameter(directed = FALSE) %>% 
-  length()
+# max_SPL_knn_2 <- knn_2_igraph %>% get_diameter(directed = FALSE) %>% 
+  # length()
 
 #TS for KNN GNARs
 flu_norm_ts_df <-county_flu_ac_season_norm %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt)<2020) %>% spread(county_fips,conf_flu_norm) %>% column_to_rownames(var="year_week_dt") 
 flu_norm_ts <- as.matrix(flu_norm_ts_df)
 
-res <- GNARfit(vts=county_flu_ac_season_norm,net=knn2_GNAR)
+
+#   Massachusetts state submodel ------------------------------------------
+
+
+
+
+
+# res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
 
 
 
