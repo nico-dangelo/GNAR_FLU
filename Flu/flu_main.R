@@ -321,19 +321,25 @@ neighborsDataFrame <- function(nb) {
 # max_SPL_knn_2 <- knn_2_igraph %>% get_diameter(directed = FALSE) %>% 
   # length()
 
-#TS for KNN GNARs
+#TS for GNARs
 flu_norm_ts_df <-county_flu_ac_season_norm %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt)<2020) %>% spread(county_fips,conf_flu_norm) %>% column_to_rownames(var="year_week_dt") 
 flu_norm_ts <- as.matrix(flu_norm_ts_df)
 
 
 #   Massachusetts state submodel ------------------------------------------
 
+flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
 
-
-
+flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 
 # res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
 
-
+#centroids for MA 
+MA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="MA")
+cent_coord_MA <-  MA_county_shape %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates()
+rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 
