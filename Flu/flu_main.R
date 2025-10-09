@@ -343,3 +343,6 @@ cent_coord_MA <-  MA_county_shape %>%
 rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 
+# KNN for MA --------------------------------------------------------------
+
+
