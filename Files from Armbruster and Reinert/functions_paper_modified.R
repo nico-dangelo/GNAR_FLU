@@ -1,3 +1,86 @@
+fit_and_predict <- function(alpha, beta, 
+                            globalalpha, 
+                            net,
+                            vts = covid_cases, 
+                           
+                            
+                            # if not NULL, coefficients are computed for 
+                            # vertex classes  
+                            weight_factor = NULL, 
+                            
+                            # if TRUE, fits INV-D weighting 
+                            inverse_distance = TRUE, 
+                            
+                           
+                            
+                            # data frame with column CountyName and its numerical encoding 
+                            county_index = NULL, 
+                            
+                            # if TRUE, the original GNARfit() function is applied
+                            old = FALSE, 
+                            
+                            return_model = FALSE, 
+                            forecast_window
+) {
+  
+  train_window <- dim(vts)[1] - forecast_window
+  
+  # fit model according to given settings 
+  if (weight_factor %>% is.null()) {
+    if (!old) {
+      model <- GNARfit_weighting(vts = vts[1:train_window, ], 
+                                 net = net,
+                                 alphaOrder = alpha, 
+                                 betaOrder = beta, 
+                                 globalalpha = globalalpha, 
+                                 inverse_distance = inverse_distance,
+                                 county_index = county_index
+      )
+    } 
+    if (old) {
+      model <- GNARfit(vts = vts[1:train_window, ], 
+                       net = net,
+                       alphaOrder = alpha, 
+                       betaOrder = beta, 
+                       globalalpha = globalalpha
+      )
+    }
+    
+  } else {
+    if (!old) {
+      model <- GNARfit_weighting(vts = vts[1:train_window, ],
+                                 net = net, 
+                                 alphaOrder = alpha, 
+                                 betaOrder = beta, 
+                                 globalalpha = globalalpha, 
+                                 fact.var = weight_factor, 
+                                 inverse_distance = inverse_distance,
+                                 county_index = county_index
+      )
+    }
+    if (old) {
+      model <- GNARfit(vts = vts[1:train_window, ], 
+                       net = net,
+                       alphaOrder = alpha, 
+                       betaOrder = beta, 
+                       globalalpha = globalalpha, 
+                      
+      )
+    }
+  }
+  
+  if (!return_model) {
+    # return data frame with RSS and BIC value for model 
+    return(data.frame("RSS" = model$mod$residuals^2 %>% sum(), 
+                      "BIC" = BIC(model)))
+  } 
+  if (return_model) {
+    # return model 
+    return(model)
+  }
+}
+
+
 fit_and_predict_for_many <- function(alpha_options = seq(1, 7), 
                                      beta_options = list(0, 1, 2, 3, 
                                                          4, 5,

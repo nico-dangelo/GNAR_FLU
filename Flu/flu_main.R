@@ -304,6 +304,10 @@ neighborsDataFrame <- function(nb) {
 # }
 
 
+#
+
+
+
 #test knn for GNAR workflow
 # knn_2<- knearneigh(x = cent_coord,
 #                    k = 2,
@@ -345,4 +349,43 @@ rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 # KNN for MA --------------------------------------------------------------
 
+knn_best <- list()
 
+for (k in seq(1, 14, by = 2)) {
+  # create nb list
+  nb_knn <- knearneigh(x = cent_coord_MA,
+                       k = k,
+                       longlat = TRUE) %>%
+    knn2nb(row.names = cent_coord_MA %>% row.names())
+
+  # Create igraph from adjacency matrix
+  flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
+    graph_from_data_frame(directed = FALSE) %>%
+    igraph::simplify()
+
+  # create GNAR object
+  flu_net_knn <- flu_net_knn_igraph %>%
+    igraphtoGNAR()
+
+  # create ordered county index data frame
+  county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
+                                   V() %>%
+                                   names(),
+                                 "index" = seq(1, 14))
+
+  # compute an upper limit for neighbourhood stage
+  max_SPL_knn <- flu_net_knn_igraph %>%
+    get_diameter(directed = FALSE) %>%
+    length()
+
+  # fit GNAR models and select the best performing one for each data subset
+  res <- fit_and_predict_for_restrictions(net = covid_net_knn,
+                                          upper_limit = max_SPL_knn - 1,
+                                          data_list = flu_norm_ts_MA)
+
+  res$hyperparam <- k
+
+  # save best performing model for every k across all data subsets
+  knn_best[[length(knn_best) + 1]] <- res
+
+}
