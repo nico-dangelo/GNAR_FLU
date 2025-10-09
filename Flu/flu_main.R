@@ -69,47 +69,47 @@ county_week_flu_v3_imputed_clean$year_week_dt <- as_date(county_week_flu_v3_impu
 # # Normalization -----------------------------------------------------------
 # #Import all cause mortality data
 # 
-# county_week_ac_v3_imputed <- readr::read_csv("Data/Flu/county_week_ac_v3_imputed.csv")
-# 
-# # Normalize flu data by ac
-# 
-# # extract year from year_week
-# county_week_ac_v3_imputed_year <-  county_week_ac_v3_imputed %>% mutate(year=sub("-.*","",year_week)) 
-# 
-# #compute year-level mean ac
-# county_year_ac_mean <- county_week_ac_v3_imputed_year %>% group_by(county_fips, year) %>% mutate(year_ac_mean=mean(all_cause_wtd))
-# 
-# # Normalize county-week ac by yearly means
-# 
-# county_week_ac_norm <-  county_year_ac_mean %>% group_by(county_fips, year) %>% mutate(week_ac_norm=all_cause_wtd/year_ac_mean)
-# 
-# 
-# 
-# #merge ac with flu data by county and year_week 
-# 
-# county_week_flu_ac_merged <- merge.data.frame(county_week_flu_v3_imputed_clean, county_week_ac_norm)
-# 
-# # adjust conf_flu by normalized county-week ac
-# 
-# county_week_flu_ac_merged_adj<- county_week_flu_ac_merged  %>% mutate(conf_flu_adj=conf_flu/week_ac_norm)
-# 
-# # import seasonal file
-# county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imputed.csv") %>% rename(season_all_cause=all_cause, season_all_cause_wtd=all_cause_wtd)
-# 
-# 
-# # Note: season = July to June; partition weekly data with season flag
-# 
-# county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season=ifelse(month(year_week_dt) >= 7, 
-#                                                                                paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
-#                                                                                paste0(year(year_week_dt) - 1, "-", year(year_week_dt)))) 
-# 
-# county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
-# 
-# # normalize by season_all_cause
-# 
-# county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_norm= conf_flu_adj/season_all_cause_wtd)
-# 
-# 
+county_week_ac_v3_imputed <- readr::read_csv("Data/Flu/county_week_ac_v3_imputed.csv")
+
+# Normalize flu data by ac
+
+# extract year from year_week
+county_week_ac_v3_imputed_year <-  county_week_ac_v3_imputed %>% mutate(year=sub("-.*","",year_week))
+
+#compute year-level mean ac
+county_year_ac_mean <- county_week_ac_v3_imputed_year %>% group_by(county_fips, year) %>% mutate(year_ac_mean=mean(all_cause_wtd))
+
+# Normalize county-week ac by yearly means
+
+county_week_ac_norm <-  county_year_ac_mean %>% group_by(county_fips, year) %>% mutate(week_ac_norm=all_cause_wtd/year_ac_mean)
+
+
+
+#merge ac with flu data by county and year_week
+
+county_week_flu_ac_merged <- merge.data.frame(county_week_flu_v3_imputed_clean, county_week_ac_norm)
+
+# adjust conf_flu by normalized county-week ac
+
+county_week_flu_ac_merged_adj<- county_week_flu_ac_merged  %>% mutate(conf_flu_adj=conf_flu/week_ac_norm)
+
+# import seasonal file
+county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imputed.csv") %>% rename(season_all_cause=all_cause, season_all_cause_wtd=all_cause_wtd)
+
+
+# Note: season = July to June; partition weekly data with season flag
+
+county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season=ifelse(month(year_week_dt) >= 7,
+                                                                               paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
+                                                                               paste0(year(year_week_dt) - 1, "-", year(year_week_dt))))
+
+county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
+
+# normalize by season_all_cause
+
+county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_norm= conf_flu_adj/season_all_cause_wtd)
+
+
 # # plot normalized data
 # 
 # plot_PBC_NYC_SFK_MDX_norm <- county_flu_ac_season_norm %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
@@ -321,8 +321,8 @@ max_SPL_knn_2 <- knn_2_igraph %>% get_diameter(directed = FALSE) %>%
   length()
 
 #TS for KNN GNARs
-
-
+flu_norm_ts_df <-county_flu_ac_season_norm %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt)<2020) %>% spread(county_fips,conf_flu_norm) %>% column_to_rownames(var="year_week_dt") 
+flu_norm_ts <- as.matrix(flu_norm_ts_df)
 
 res <- GNARfit(vts=county_flu_ac_season_norm,net=knn2_GNAR)
 
