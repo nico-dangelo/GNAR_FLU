@@ -9,6 +9,7 @@ library(spiralize)
 library(GNAR)
 library(igraph)
 library(spdep)
+library(sf)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -17,113 +18,113 @@ county_week_flu_v3_imputed_clean <- county_week_flu_v3_imputed
 county_week_flu_v3_imputed_clean$year_week_dt <- as_date(county_week_flu_v3_imputed$year_week_dt, format="%G-%V-%u")
 
 
-# Subset examples----------------------------------------
-#Palm Beach County 
-county_week_flu_v3_imputed_clean_PBC <- county_week_flu_v3_imputed_clean %>% filter(county_fips==12099)
-#New York County
-county_week_flu_v3_imputed_clean_NYC <- county_week_flu_v3_imputed_clean %>% filter(county_fips==36061)
-# Suffolk County MA
-county_week_flu_v3_imputed_clean_SFK <- county_week_flu_v3_imputed_clean %>% filter(county_fips==25025) 
-
-# Middlesex county MA
-
-county_week_flu_v3_imputed_clean_MDX <- county_week_flu_v3_imputed_clean %>% filter(county_fips==25017)
-
-# Visualize example data on spirals --------------------------------------------------
-
-# range(county_week_flu_v3_imputed_clean_PBC$conf_flu)
-#PBC
-# spiral_initialize_by_time(xlim=range(county_week_flu_v3_imputed_clean_PBC$year_week_dt), unit_on_axis = "weeks", normalize_year = T)
-# spiral_track(height =  0.8, ylim = c(0, 1.5e3))
-# spiral_lines(county_week_flu_v3_imputed_clean_PBC$year_week_dt, county_week_flu_v3_imputed_clean_PBC$conf_flu, type="h", gp = gpar(fill = 2, col = 2))
-# spiral_points(county_week_flu_v3_imputed_clean_PBC$year_week_dt, county_week_flu_v3_imputed_clean_PBC$conf_flu,pch = 16, gp = gpar(col = 2))
-# spiral_yaxis(at = c(0, 100, 500, 1000, 1.5e3), labels = c("0", "100", "500", "1000", "1500"), 
-#              labels_gp = gpar(fontsize = 7))
-# spiral_PBC <- spiralize::current_spiral()
+# # Subset examples----------------------------------------
+# #Palm Beach County 
+# county_week_flu_v3_imputed_clean_PBC <- county_week_flu_v3_imputed_clean %>% filter(county_fips==12099)
+# #New York County
+# county_week_flu_v3_imputed_clean_NYC <- county_week_flu_v3_imputed_clean %>% filter(county_fips==36061)
+# # Suffolk County MA
+# county_week_flu_v3_imputed_clean_SFK <- county_week_flu_v3_imputed_clean %>% filter(county_fips==25025) 
 # 
-# #NYC
-# spiral_initialize_by_time(xlim=range(county_week_flu_v3_imputed_clean_NYC$year_week_dt), unit_on_axis = "weeks", normalize_year = T)
-# spiral_track(height =  0.8, ylim = c(0, 1.6e3))
-# spiral_bars(county_week_flu_v3_imputed_clean_NYC$year_week_dt, county_week_flu_v3_imputed_clean_NYC$conf_flu, gp = gpar(fill = 2, col = 2))
-# spiral_yaxis(at = c(0, 100, 500, 1000, 1.6e3), labels = c("0", "100", "500", "1000", "1600"), 
-#              labels_gp = gpar(fontsize = 7))
+# # Middlesex county MA
 # 
-# spiral_NYC <- current_spiral()
+# county_week_flu_v3_imputed_clean_MDX <- county_week_flu_v3_imputed_clean %>% filter(county_fips==25017)
 # 
-# plot(county_week_flu_v3_imputed_clean_NYC$conf_flu)
-
-
-# Visualize on overlaid linear plots  -------------------------------------
-
-plot_PBC_NYC_SFK_MDX <- county_week_flu_v3_imputed_clean %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                                              year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
-
-plot_PBC_NYC_SFK_MDX
-
-
-plot_Miami_Cook_Fulton <-  county_week_flu_v3_imputed_clean %>% filter(county_fips %in% c(12086,17031,13121), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                                        year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
-plot_Miami_Cook_Fulton
-
-# Normalization -----------------------------------------------------------
-#Import all cause mortality data
-
-county_week_ac_v3_imputed <- readr::read_csv("Data/Flu/county_week_ac_v3_imputed.csv")
-
-# Normalize flu data by ac
-
-# extract year from year_week
-county_week_ac_v3_imputed_year <-  county_week_ac_v3_imputed %>% mutate(year=sub("-.*","",year_week)) 
-
-#compute year-level mean ac
-county_year_ac_mean <- county_week_ac_v3_imputed_year %>% group_by(county_fips, year) %>% mutate(year_ac_mean=mean(all_cause_wtd))
-
-# Normalize county-week ac by yearly means
-
-county_week_ac_norm <-  county_year_ac_mean %>% group_by(county_fips, year) %>% mutate(week_ac_norm=all_cause_wtd/year_ac_mean)
-
-
-
-#merge ac with flu data by county and year_week 
-
-county_week_flu_ac_merged <- merge.data.frame(county_week_flu_v3_imputed_clean, county_week_ac_norm)
-
-# adjust conf_flu by normalized county-week ac
-
-county_week_flu_ac_merged_adj<- county_week_flu_ac_merged  %>% mutate(conf_flu_adj=conf_flu/week_ac_norm)
-
-# import seasonal file
-county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imputed.csv") %>% rename(season_all_cause=all_cause, season_all_cause_wtd=all_cause_wtd)
-
-
-# Note: season = July to June; partition weekly data with season flag
-
-county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season=ifelse(month(year_week_dt) >= 7, 
-                                                                               paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
-                                                                               paste0(year(year_week_dt) - 1, "-", year(year_week_dt)))) 
-
-county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
-
-# normalize by season_all_cause
-
-county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_norm= conf_flu_adj/season_all_cause_wtd)
-
-
-# plot normalized data
-
-plot_PBC_NYC_SFK_MDX_norm <- county_flu_ac_season_norm %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                                            year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
-
-plot_PBC_NYC_SFK_MDX_norm
-
-plot_Miami_Cook_Fulton_norm <-  county_flu_ac_season_norm %>% filter(county_fips %in% c(12086,17031,13121), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                                      year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
-plot_Miami_Cook_Fulton_norm
-
-#DC
-
-county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x =
-                                                                          week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+# # Visualize example data on spirals --------------------------------------------------
+# 
+# # range(county_week_flu_v3_imputed_clean_PBC$conf_flu)
+# #PBC
+# # spiral_initialize_by_time(xlim=range(county_week_flu_v3_imputed_clean_PBC$year_week_dt), unit_on_axis = "weeks", normalize_year = T)
+# # spiral_track(height =  0.8, ylim = c(0, 1.5e3))
+# # spiral_lines(county_week_flu_v3_imputed_clean_PBC$year_week_dt, county_week_flu_v3_imputed_clean_PBC$conf_flu, type="h", gp = gpar(fill = 2, col = 2))
+# # spiral_points(county_week_flu_v3_imputed_clean_PBC$year_week_dt, county_week_flu_v3_imputed_clean_PBC$conf_flu,pch = 16, gp = gpar(col = 2))
+# # spiral_yaxis(at = c(0, 100, 500, 1000, 1.5e3), labels = c("0", "100", "500", "1000", "1500"), 
+# #              labels_gp = gpar(fontsize = 7))
+# # spiral_PBC <- spiralize::current_spiral()
+# # 
+# # #NYC
+# # spiral_initialize_by_time(xlim=range(county_week_flu_v3_imputed_clean_NYC$year_week_dt), unit_on_axis = "weeks", normalize_year = T)
+# # spiral_track(height =  0.8, ylim = c(0, 1.6e3))
+# # spiral_bars(county_week_flu_v3_imputed_clean_NYC$year_week_dt, county_week_flu_v3_imputed_clean_NYC$conf_flu, gp = gpar(fill = 2, col = 2))
+# # spiral_yaxis(at = c(0, 100, 500, 1000, 1.6e3), labels = c("0", "100", "500", "1000", "1600"), 
+# #              labels_gp = gpar(fontsize = 7))
+# # 
+# # spiral_NYC <- current_spiral()
+# # 
+# # plot(county_week_flu_v3_imputed_clean_NYC$conf_flu)
+# 
+# 
+# # Visualize on overlaid linear plots  -------------------------------------
+# 
+# plot_PBC_NYC_SFK_MDX <- county_week_flu_v3_imputed_clean %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
+#                                                                                                                                                               year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
+# 
+# plot_PBC_NYC_SFK_MDX
+# 
+# 
+# plot_Miami_Cook_Fulton <-  county_week_flu_v3_imputed_clean %>% filter(county_fips %in% c(12086,17031,13121), year(year_week_dt)<2020) %>% ggplot(aes(x =
+#                                                                                                                                                         year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
+# plot_Miami_Cook_Fulton
+# 
+# # Normalization -----------------------------------------------------------
+# #Import all cause mortality data
+# 
+# county_week_ac_v3_imputed <- readr::read_csv("Data/Flu/county_week_ac_v3_imputed.csv")
+# 
+# # Normalize flu data by ac
+# 
+# # extract year from year_week
+# county_week_ac_v3_imputed_year <-  county_week_ac_v3_imputed %>% mutate(year=sub("-.*","",year_week)) 
+# 
+# #compute year-level mean ac
+# county_year_ac_mean <- county_week_ac_v3_imputed_year %>% group_by(county_fips, year) %>% mutate(year_ac_mean=mean(all_cause_wtd))
+# 
+# # Normalize county-week ac by yearly means
+# 
+# county_week_ac_norm <-  county_year_ac_mean %>% group_by(county_fips, year) %>% mutate(week_ac_norm=all_cause_wtd/year_ac_mean)
+# 
+# 
+# 
+# #merge ac with flu data by county and year_week 
+# 
+# county_week_flu_ac_merged <- merge.data.frame(county_week_flu_v3_imputed_clean, county_week_ac_norm)
+# 
+# # adjust conf_flu by normalized county-week ac
+# 
+# county_week_flu_ac_merged_adj<- county_week_flu_ac_merged  %>% mutate(conf_flu_adj=conf_flu/week_ac_norm)
+# 
+# # import seasonal file
+# county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imputed.csv") %>% rename(season_all_cause=all_cause, season_all_cause_wtd=all_cause_wtd)
+# 
+# 
+# # Note: season = July to June; partition weekly data with season flag
+# 
+# county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season=ifelse(month(year_week_dt) >= 7, 
+#                                                                                paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
+#                                                                                paste0(year(year_week_dt) - 1, "-", year(year_week_dt)))) 
+# 
+# county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
+# 
+# # normalize by season_all_cause
+# 
+# county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_norm= conf_flu_adj/season_all_cause_wtd)
+# 
+# 
+# # plot normalized data
+# 
+# plot_PBC_NYC_SFK_MDX_norm <- county_flu_ac_season_norm %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
+#                                                                                                                                                             year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+# 
+# plot_PBC_NYC_SFK_MDX_norm
+# 
+# plot_Miami_Cook_Fulton_norm <-  county_flu_ac_season_norm %>% filter(county_fips %in% c(12086,17031,13121), year(year_week_dt)<2020) %>% ggplot(aes(x =
+#                                                                                                                                                       year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+# plot_Miami_Cook_Fulton_norm
+# 
+# #DC
+# 
+# county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x =
+#                                                                           week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
 
 
 # Prepare Data objects for GNAR -------------------------------------------
@@ -137,19 +138,19 @@ county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x =
 
 #import county_neighbors
 
-county_neighbors<- readr::read_csv("Data/Flu/county_neighbors.csv")
-
-#only keep counties present in flu data
-common_counties <- intersect(county_flu_ac_season_norm$county_fips, county_neighbors$county)
-
-county_neighbors_clean <- county_neighbors %>% filter(county %in% common_counties) %>% filter (neighbor %in% common_counties)
-
-flu_norm_common <- county_flu_ac_season_norm %>% filter( county_fips %in% common_counties) 
-# Initial network
-
-county_neighbors_net <- county_neighbors_clean %>% select(c("county", "neighbor")) %>% as.matrix() %>% igraph::graph_from_edgelist()
-
-county_neighbors_GNAR <- GNAR::igraphtoGNAR(county_neighbors_net)
+# county_neighbors<- readr::read_csv("Data/Flu/county_neighbors.csv")
+# 
+# #only keep counties present in flu data
+# common_counties <- intersect(county_flu_ac_season_norm$county_fips, county_neighbors$county)
+# 
+# county_neighbors_clean <- county_neighbors %>% filter(county %in% common_counties) %>% filter (neighbor %in% common_counties)
+# 
+# flu_norm_common <- county_flu_ac_season_norm %>% filter( county_fips %in% common_counties) 
+# # Initial network
+# 
+# county_neighbors_net <- county_neighbors_clean %>% select(c("county", "neighbor")) %>% as.matrix() %>% igraph::graph_from_edgelist()
+# 
+# county_neighbors_GNAR <- GNAR::igraphtoGNAR(county_neighbors_net)
 
 # fit GNAR to flu data series -- sensitive to counts? 
 
@@ -160,9 +161,9 @@ county_neighbors_GNAR <- GNAR::igraphtoGNAR(county_neighbors_net)
 
 #Check that some nodes/counties do not have data in flu/ac set!!!!
 
-flu_norm_ts_df <- flu_norm_common %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt)<2020) %>% spread(county_fips,conf_flu_norm) %>% column_to_rownames(var="year_week_dt") 
+# flu_norm_ts_df <- flu_norm_common %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt)<2020) %>% spread(county_fips,conf_flu_norm) %>% column_to_rownames(var="year_week_dt") 
 
-flu_norm_ts <-as.matrix(flu_norm_ts_df)
+# flu_norm_ts <-as.matrix(flu_norm_ts_df)
 # flu_norm_GNAR <- GNARfit(vts=flu_norm_ts, net=county_neighbors_GNAR, alphaOrder = 2, betaOrder = c(1,1))
 
 
@@ -175,26 +176,26 @@ flu_norm_ts <-as.matrix(flu_norm_ts_df)
 # Fit state submodels for more tractable inference -- start with CA
 
 # California
-
-flu_norm_ts_CA <- flu_norm_ts_df %>% select(starts_with("06")) %>% as.matrix()
-county_neighbors_net_CA <-subgraph(county_neighbors_net,colnames(flu_norm_ts_CA))
-county_neighbors_CA_GNAR <- igraphtoGNAR(county_neighbors_net_CA)
-flu_norm_CA_GNAR <- GNARfit(vts=flu_norm_ts_CA, net=county_neighbors_CA_GNAR,  alphaOrder = 2, betaOrder = c(1,1))
-# BIC cannot be computed 
-# Massachusetts
-
-flu_norm_ts_MA <- flu_norm_ts_df %>% select(starts_with("25")) %>% as.matrix()
-county_neighbors_net_MA <- subgraph(county_neighbors_net, colnames(flu_norm_ts_MA))
-county_neighbors_MA_GNAR <- igraphtoGNAR(county_neighbors_net_MA)
-flu_norm_MA_GNAR <- GNARfit(vts=flu_norm_ts_MA, net=county_neighbors_MA_GNAR, alphaOrder = 2, betaOrder = c(1,1))
-
-
-
-# Vary alpha parameters -------------------------------
-
-flu_norm_MA_GNAR_alpha_1 <- GNARfit(vts=flu_norm_ts_MA, net=county_neighbors_MA_GNAR, alphaOrder = 1, betaOrder = 1 )
-View(GNAR:::BIC.GNARfit)
-
+# 
+# flu_norm_ts_CA <- flu_norm_ts_df %>% select(starts_with("06")) %>% as.matrix()
+# county_neighbors_net_CA <-subgraph(county_neighbors_net,colnames(flu_norm_ts_CA))
+# county_neighbors_CA_GNAR <- igraphtoGNAR(county_neighbors_net_CA)
+# flu_norm_CA_GNAR <- GNARfit(vts=flu_norm_ts_CA, net=county_neighbors_CA_GNAR,  alphaOrder = 2, betaOrder = c(1,1))
+# # BIC cannot be computed 
+# # Massachusetts
+# 
+# flu_norm_ts_MA <- flu_norm_ts_df %>% select(starts_with("25")) %>% as.matrix()
+# county_neighbors_net_MA <- subgraph(county_neighbors_net, colnames(flu_norm_ts_MA))
+# county_neighbors_MA_GNAR <- igraphtoGNAR(county_neighbors_net_MA)
+# flu_norm_MA_GNAR <- GNARfit(vts=flu_norm_ts_MA, net=county_neighbors_MA_GNAR, alphaOrder = 2, betaOrder = c(1,1))
+# 
+# 
+# 
+# # Vary alpha parameters -------------------------------
+# 
+# flu_norm_MA_GNAR_alpha_1 <- GNARfit(vts=flu_norm_ts_MA, net=county_neighbors_MA_GNAR, alphaOrder = 1, betaOrder = 1 )
+# View(GNAR:::BIC.GNARfit)
+# 
 
 
 
@@ -204,10 +205,7 @@ View(GNAR:::BIC.GNARfit)
 # Import and Process Shapefile --------------------------------------------
 
 # County-level shapefile 
-
-library(sf)
-
-US_county_shape<- st_read("G:/My Drive/Lab Files/GNAR_FLU/Shapefiles/cb_2020_us_all_5m/cb_2020_us_county_5m")
+US_county_shape<- st_read("G:/My Drive/Lab Files/GNAR_FLU/Shapefiles/cb_2020_us_county_5m/cb_2020_us_county_5m.shp")
 
 # Check that all counties are included in flu data
 #check names
@@ -217,7 +215,6 @@ exclude_fips <- setdiff(US_county_shape$GEOID, county_flu_ac_season_norm$county_
 
 include_fips <- intersect(US_county_shape$GEOID, county_flu_ac_season_norm$county_fips)
 
-#remove counties outside continental US
 
 
 
