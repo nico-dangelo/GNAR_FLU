@@ -408,7 +408,7 @@ rownames(cent_coord_FL) <- FL_county_shape$GEOID
 
 
 knn_best_FL <- list()
-for (k in seq(1, 66, by = 2)) {
+for (k in seq(5, 66, by = 2)) {
   # create nb list
   nb_knn <- knearneigh(x = cent_coord_FL,
                        k = k,
@@ -435,7 +435,27 @@ for (k in seq(1, 66, by = 2)) {
     get_diameter(directed = FALSE) %>%
     length()
 }
-for (k in seq(1, 66, by = 2)) {
+
+# visualize knn networks to probe issues with GNAR likelihood
+plot(st_geometry(FL_county_shape), border="grey")
+nb_knn_5 <-knearneigh(x = cent_coord_FL,
+                      k = 5,
+                      longlat = TRUE) %>%
+  knn2nb(row.names = cent_coord_FL %>% row.names())
+
+plot(nb_knn_5, cent_coord_FL,pch = 19, cex = 0.6,
+          add=TRUE)
+text(cent_coord_FL[, 1],
+          cent_coord_FL[, 2],
+          labels = rownames(cent_coord_FL),
+          cex = 0.8, font = 2, pos = 1)
+
+knn_5_igraph <- neighborsDataFrame(nb = nb_knn_5) %>%
+  graph_from_data_frame(directed = FALSE) %>%
+  igraph::simplify()
+
+
+for (k in seq(15, 66, by = 2)) {
   # fit GNAR models and select the best performing one for each data subset
   res <- fit_and_predict_for_many(net = flu_net_knn,
                                   upper_limit = max_SPL_knn - 1,
