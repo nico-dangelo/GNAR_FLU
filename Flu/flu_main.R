@@ -8,6 +8,7 @@ library(spiralize)
 # library(ggplot2)
 library(GNAR)
 library(igraph)
+library(spdep)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -55,13 +56,13 @@ county_week_flu_v3_imputed_clean_MDX <- county_week_flu_v3_imputed_clean %>% fil
 # Visualize on overlaid linear plots  -------------------------------------
 
 plot_PBC_NYC_SFK_MDX <- county_week_flu_v3_imputed_clean %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                     year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
+                                                                                                                                                              year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
 
 plot_PBC_NYC_SFK_MDX
 
 
 plot_Miami_Cook_Fulton <-  county_week_flu_v3_imputed_clean %>% filter(county_fips %in% c(12086,17031,13121), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
+                                                                                                                                                        year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
 plot_Miami_Cook_Fulton
 
 # Normalization -----------------------------------------------------------
@@ -98,8 +99,8 @@ county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imp
 # Note: season = July to June; partition weekly data with season flag
 
 county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season=ifelse(month(year_week_dt) >= 7, 
-                                                                                                                     paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
-                                                                                                                     paste0(year(year_week_dt) - 1, "-", year(year_week_dt)))) 
+                                                                               paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
+                                                                               paste0(year(year_week_dt) - 1, "-", year(year_week_dt)))) 
 
 county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
 
@@ -111,18 +112,18 @@ county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_nor
 # plot normalized data
 
 plot_PBC_NYC_SFK_MDX_norm <- county_flu_ac_season_norm %>% filter(county_fips %in% c(12099, 36061, 25025, 25017), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                     year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+                                                                                                                                                            year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
 
 plot_PBC_NYC_SFK_MDX_norm
 
 plot_Miami_Cook_Fulton_norm <-  county_flu_ac_season_norm %>% filter(county_fips %in% c(12086,17031,13121), year(year_week_dt)<2020) %>% ggplot(aes(x =
-                                                                                                                                                        year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+                                                                                                                                                      year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
 plot_Miami_Cook_Fulton_norm
 
 #DC
 
 county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x =
-                                                                                     week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+                                                                          week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
 
 
 # Prepare Data objects for GNAR -------------------------------------------
@@ -140,11 +141,11 @@ county_neighbors<- readr::read_csv("Data/Flu/county_neighbors.csv")
 
 #only keep counties present in flu data
 common_counties <- intersect(county_flu_ac_season_norm$county_fips, county_neighbors$county)
- 
+
 county_neighbors_clean <- county_neighbors %>% filter(county %in% common_counties) %>% filter (neighbor %in% common_counties)
 
 flu_norm_common <- county_flu_ac_season_norm %>% filter( county_fips %in% common_counties) 
- # Initial network
+# Initial network
 
 county_neighbors_net <- county_neighbors_clean %>% select(c("county", "neighbor")) %>% as.matrix() %>% igraph::graph_from_edgelist()
 
@@ -193,7 +194,7 @@ flu_norm_MA_GNAR <- GNARfit(vts=flu_norm_ts_MA, net=county_neighbors_MA_GNAR, al
 
 flu_norm_MA_GNAR_alpha_1 <- GNARfit(vts=flu_norm_ts_MA, net=county_neighbors_MA_GNAR, alphaOrder = 1, betaOrder = 1 )
 View(GNAR:::BIC.GNARfit)
- 
+
 
 
 
@@ -206,32 +207,37 @@ View(GNAR:::BIC.GNARfit)
 
 library(sf)
 
-US_county_shape<- st_read("G:/My Drive/Lab Files/GNAR_COVID/Shapefiles/cb_2020_us_all_5m/cb_2020_us_county_5m")
+US_county_shape<- st_read("G:/My Drive/Lab Files/GNAR_FLU/Shapefiles/cb_2020_us_all_5m/cb_2020_us_county_5m")
+
+# Check that all counties are included in flu data
+#check names
+exclude_names <- setdiff(US_county_shape$NAMELSAD, county_flu_ac_season_norm$county_name)
+#check fips
+exclude_fips <- setdiff(US_county_shape$GEOID, county_flu_ac_season_norm$county_fips)
+
+include_fips <- intersect(US_county_shape$GEOID, county_flu_ac_season_norm$county_fips)
+
+#remove counties outside continental US
+
+
 
 # Construct centroid coordinates
 
-cent_coord <- US_county_shape%>%
+
+cent_coord <- US_county_shape%>% subset(.,GEOID %in% include_fips) %>%
   st_geometry() %>%
   st_centroid() %>%
   st_coordinates()
-names(cent_coord) <- US_county_shape$NAMELSAD
+names(cent_coord) <- US_county_shape$GEOID
 
 
-# Check that all counties are included in flu data
-setdiff(county_flu_ac_season_norm$county_name, names(cent_coord))
+
 # intersect(county_flu_ac_season_norm, names(cent_coord))
 
-# KNN on centroids --------------------------------------------------------
-library(spdep)
-#k=11
 
-knn_11 <- spdep::knearneigh(x=cent_coord, k=11,longlat=T) %>% spdep::knn2nb(row.names=rownames(cent_coord),)
+# Functions for KNN -------------------------------------------------------
 
-#k=25
 
-knn_25 <- spdep::knearneigh(x=cent_coord,k=25,longlat=T) %>% spdep::knn2nb(row.names=rownames(cent_coord),)
-
-#igraph objects
 
 #function to extract neighbor dataframe
 neighborsDataFrame <- function(nb) {
@@ -255,12 +261,74 @@ neighborsDataFrame <- function(nb) {
   o[, c("id", "id_neigh")] %>% return()
 }
 
-knn_11_igraph <- neighborsDataFrame(nb = knn_11) %>% 
+# #Find optimal k for KNN GNAR models
+
+# Original code from IR
+# knn_best <- list()
+# 
+# for (k in seq(1, 26, by = 2)) {
+#   # create nb list
+#   nb_knn <- knearneigh(x = coord_urbanisation,
+#                        k = k,
+#                        longlat = TRUE) %>% 
+#     knn2nb(row.names = coord_urbanisation %>% row.names())
+#   
+#   # Create igraph from adjacency matrix
+#   covid_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>% 
+#     graph_from_data_frame(directed = FALSE) %>% 
+#     igraph::simplify() 
+#   
+#   # create GNAR object 
+#   covid_net_knn <- covid_net_knn_igraph %>% 
+#     igraphtoGNAR()
+#   
+#   # create ordered county index data frame 
+#   county_index_knn <- data.frame("CountyName" = covid_net_knn_igraph %>%
+#                                    V() %>% 
+#                                    names(), 
+#                                  "index" = seq(1, 26))
+#   
+#   # compute an upper limit for neighbourhood stage 
+#   max_SPL_knn <- covid_net_knn_igraph %>% 
+#     get_diameter(directed = FALSE) %>% 
+#     length()
+#   
+#   # fit GNAR models and select the best performing one for each data subset 
+#   res <- fit_and_predict_for_restrictions(net = covid_net_knn, 
+#                                           upper_limit = max_SPL_knn - 1, 
+#                                           data_list = datasets_list_coarse)
+#   
+#   res$hyperparam <- k
+#   
+#   # save best performing model for every k across all data subsets  
+#   knn_best[[length(knn_best) + 1]] <- res
+#   
+# }
+
+
+#test knn for GNAR workflow
+knn_2<- knearneigh(x = cent_coord,
+                   k = 2,
+                   longlat = TRUE) %>% 
+  knn2nb(row.names = cent_coord %>% row.names())
+
+knn_2_igraph <- neighborsDataFrame(knn_2) %>% 
   igraph::graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
+knn2_GNAR <- knn_2_igraph%>% igraphtoGNAR()
 
-knn_25_igraph <- neighborsDataFrame(nb = knn_25) %>% 
-  igraph::graph_from_data_frame(directed = FALSE) %>% 
-  igraph::simplify() 
+# upper limit on neighborhood stage
+
+max_SPL_knn_2 <- knn_2_igraph %>% get_diameter(directed = FALSE) %>% 
+  length()
+
+#TS for KNN GNARs
+
+
+
+res <- GNARfit(vts=county_flu_ac_season_norm,net=knn2_GNAR)
+
+
+
 
