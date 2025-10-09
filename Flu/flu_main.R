@@ -11,6 +11,7 @@ library(igraph)
 library(spdep)
 library(sf)
 library(sp)
+library(mcstatsim)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -351,7 +352,7 @@ rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 knn_best <- list()
 
-for (k in seq(1, 14, by = 2)) {
+for (k in seq(1, 13, by = 1)) {
   # create nb list
   nb_knn <- knearneigh(x = cent_coord_MA,
                        k = k,
@@ -379,9 +380,9 @@ for (k in seq(1, 14, by = 2)) {
     length()
 
   # fit GNAR models and select the best performing one for each data subset
-  res <- fit_and_predict_for_restrictions(net = covid_net_knn,
+  res <- fit_and_predict_for_many(net = flu_net_knn,
                                           upper_limit = max_SPL_knn - 1,
-                                          data_list = flu_norm_ts_MA)
+                                          vts = flu_norm_ts_MA)
 
   res$hyperparam <- k
 

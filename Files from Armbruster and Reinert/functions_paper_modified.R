@@ -6,10 +6,10 @@ fit_and_predict <- function(alpha, beta,
                             
                             # if not NULL, coefficients are computed for 
                             # vertex classes  
-                            weight_factor = NULL, 
+                            # weight_factor = NULL, 
                             
                             # if TRUE, fits INV-D weighting 
-                            inverse_distance = TRUE, 
+                            # inverse_distance = TRUE, 
                             
                            
                             
@@ -17,7 +17,7 @@ fit_and_predict <- function(alpha, beta,
                             county_index = NULL, 
                             
                             # if TRUE, the original GNARfit() function is applied
-                            old = FALSE, 
+                            old = TRUE, 
                             
                             return_model = FALSE, 
                             forecast_window
@@ -141,7 +141,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 7),
                                      county_index = NULL, 
                                      
                                      # if TRUE, the original GNARfit() function is applied
-                                     old = FALSE,
+                                     old = TRUE,
                                      
                                      forecast_window = 5) {
   
