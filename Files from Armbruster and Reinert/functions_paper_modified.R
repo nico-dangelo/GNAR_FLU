@@ -27,16 +27,16 @@ fit_and_predict <- function(alpha, beta,
   
   # fit model according to given settings 
   if (weight_factor %>% is.null()) {
-    if (!old) {
-      model <- GNARfit_weighting(vts = vts[1:train_window, ], 
-                                 net = net,
-                                 alphaOrder = alpha, 
-                                 betaOrder = beta, 
-                                 globalalpha = globalalpha, 
-                                 inverse_distance = inverse_distance,
-                                 county_index = county_index
-      )
-    } 
+    # if (!old) {
+    #   model <- GNARfit_weighting(vts = vts[1:train_window, ], 
+    #                              net = net,
+    #                              alphaOrder = alpha, 
+    #                              betaOrder = beta, 
+    #                              globalalpha = globalalpha, 
+    #                              inverse_distance = inverse_distance,
+    #                              county_index = county_index
+    #   )
+    # } 
     if (old) {
       model <- GNARfit(vts = vts[1:train_window, ], 
                        net = net,
@@ -47,17 +47,17 @@ fit_and_predict <- function(alpha, beta,
     }
     
   } else {
-    if (!old) {
-      model <- GNARfit_weighting(vts = vts[1:train_window, ],
-                                 net = net, 
-                                 alphaOrder = alpha, 
-                                 betaOrder = beta, 
-                                 globalalpha = globalalpha, 
-                                 fact.var = weight_factor, 
-                                 inverse_distance = inverse_distance,
-                                 county_index = county_index
-      )
-    }
+    # if (!old) {
+    #   model <- GNARfit_weighting(vts = vts[1:train_window, ],
+    #                              net = net, 
+    #                              alphaOrder = alpha, 
+    #                              betaOrder = beta, 
+    #                              globalalpha = globalalpha, 
+    #                              fact.var = weight_factor, 
+    #                              inverse_distance = inverse_distance,
+    #                              county_index = county_index
+    #   )
+    # }
     if (old) {
       model <- GNARfit(vts = vts[1:train_window, ], 
                        net = net,
