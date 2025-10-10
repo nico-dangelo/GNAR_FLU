@@ -333,65 +333,87 @@ flu_norm_ts <- as.matrix(flu_norm_ts_df)
 
 #   Massachusetts state submodel ------------------------------------------
 
-# flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
-# 
-# flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
+#Plot normalized Massachusetts series
+
+county_flu_norm_plot_MA <- county_flu_ac_season_norm %>% filter(county_fips %in% MA_county_shape$GEOID & year(year_week_dt)<2020) %>% ggplot(aes(x =year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+
+
+
+flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
+
+flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 
 # res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
 
-#centroids for MA 
-# MA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="MA")
-# cent_coord_MA <-  MA_county_shape %>%
-#   st_geometry() %>%
-#   st_centroid() %>%
-#   st_coordinates()
-# rownames(cent_coord_MA) <- MA_county_shape$GEOID
+#centroids for MA
+MA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="MA")
+cent_coord_MA <-  MA_county_shape %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates()
+rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 
 # KNN for MA --------------------------------------------------------------
 
-# knn_best_MA <- list()
-# 
-# for (k in seq(1, 13, by = 1)) {
-#   # create nb list
-#   nb_knn <- knearneigh(x = cent_coord_MA,
-#                        k = k,
-#                        longlat = TRUE) %>%
-#     knn2nb(row.names = cent_coord_MA %>% row.names())
-# 
-#   # Create igraph from adjacency matrix
-#   flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
-#     graph_from_data_frame(directed = FALSE) %>%
-#     igraph::simplify()
-# 
-#   # create GNAR object
-#   flu_net_knn <- flu_net_knn_igraph %>%
-#     igraphtoGNAR()
-# 
-#   # create ordered county index data frame
-#   county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
-#                                    V() %>%
-#                                    names(),
-#                                  "index" = seq(1, 14))
-# 
-#   # compute an upper limit for neighbourhood stage
-#   max_SPL_knn <- flu_net_knn_igraph %>%
-#     get_diameter(directed = FALSE) %>%
-#     length()
-# 
-#   # fit GNAR models and select the best performing one for each data subset
-#   res <- fit_and_predict_for_many(net = flu_net_knn,
-#                                           upper_limit = max_SPL_knn - 1,
-#                                           vts = flu_norm_ts_MA)
-# 
-#   res$hyperparam <- k
-# 
-#   # save best performing model for every k across all data subsets
-#   knn_best[[length(knn_best) + 1]] <- res
-# 
-# }
+knn_best_MA <- list()
+cobit_plots <- list()
+
+for (k in seq(1, 13, by = 1)) {
+  # create nb list
+  nb_knn <- knearneigh(x = cent_coord_MA,
+                       k = k,
+                       longlat = TRUE) %>%
+    knn2nb(row.names = cent_coord_MA %>% row.names())
+
+  # Create igraph from adjacency matrix
+  flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
+    graph_from_data_frame(directed = FALSE) %>%
+    igraph::simplify()
+
+  # create GNAR object
+  flu_net_knn <- flu_net_knn_igraph %>%
+    igraphtoGNAR()
+
+  # create ordered county index data frame
+  county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
+                                   V() %>%
+                                   names(),
+                                 "index" = seq(1, 14))
+
+  # compute an upper limit for neighbourhood stage
+  max_SPL_knn <- flu_net_knn_igraph %>%
+    get_diameter(directed = FALSE) %>%
+    length()
+
+  #Network autocorrelation to choose alpha
+  
+  weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
+  corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 7, weight_matrix = weight_matrix_knn)
+  
+  # fit GNAR models and select the best performing one for each data subset
+  res <- fit_and_predict_for_many(net = flu_net_knn,
+                                          upper_limit = max_SPL_knn - 1,
+                                          vts = flu_norm_ts_MA)
+
+  res$hyperparam <- k
+
+  # save best performing model for every k across all data subsets
+  knn_best_MA[[length(knn_best_MA) + 1]] <- res
+
+}
 
 
+# Diagnostics for MA models -----------------------------------------------
+# Find best knn network model based on BIC
+
+# filter the best performing GNAR model for each data subset across all 
+# neighbourhood sizes 
+knn_best_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>% 
+  filter(BIC == min(BIC)) %>% 
+  ungroup() %>% 
+  as.data.frame() 
+knn_best_df$network <-  "KNN"
 
 
 # Submodel for FL ---------------------------------------------------------
