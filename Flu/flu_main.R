@@ -389,19 +389,26 @@ for (k in seq(1, 13, by = 1)) {
   #Network autocorrelation to choose alpha
   
   weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
-  corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 7, weight_matrix = weight_matrix_knn)
+  corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
+  # Network partial autocorrelation
+  corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
+
   
-  # fit GNAR models and select the best performing one for each data subset
-  res <- fit_and_predict_for_many(net = flu_net_knn,
-                                          upper_limit = max_SPL_knn - 1,
-                                          vts = flu_norm_ts_MA)
+  
+  }
 
-  res$hyperparam <- k
-
-  # save best performing model for every k across all data subsets
-  knn_best_MA[[length(knn_best_MA) + 1]] <- res
-
-}
+# for(k in seq(1, 13, by = 1)){
+#   # fit GNAR models and select the best performing one 
+#   res <- fit_and_predict_for_many(net = flu_net_knn,
+#                                           upper_limit = max_SPL_knn - 1,
+#                                           vts = flu_norm_ts_MA)
+# 
+#   res$hyperparam <- k
+# 
+#   # save best performing model for every k across all data subsets
+#   knn_best_MA[[length(knn_best_MA) + 1]] <- res
+# 
+# }
 
 
 # Diagnostics for MA models -----------------------------------------------
@@ -409,11 +416,11 @@ for (k in seq(1, 13, by = 1)) {
 
 # filter the best performing GNAR model for each data subset across all 
 # neighbourhood sizes 
-knn_best_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>% 
-  filter(BIC == min(BIC)) %>% 
-  ungroup() %>% 
-  as.data.frame() 
-knn_best_df$network <-  "KNN"
+# knn_best_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>% 
+#   filter(BIC == min(BIC)) %>% 
+#   ungroup() %>% 
+#   as.data.frame() 
+# knn_best_df$network <-  "KNN"
 
 
 # Submodel for FL ---------------------------------------------------------
