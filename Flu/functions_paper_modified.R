@@ -70,8 +70,9 @@ fit_and_predict <- function(alpha, beta,
   }
   
   if (!return_model) {
-    # return data frame with RSS and BIC value for model 
+    # return data frame with RSS, log likelihood, and BIC value for model 
     return(data.frame("RSS" = model$mod$residuals^2 %>% sum(), 
+                      "LogLik" = GNAR::logLik(model)
                       "BIC" = BIC(model)))
   } 
   if (return_model) {
