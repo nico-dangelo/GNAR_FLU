@@ -12,6 +12,7 @@ library(spdep)
 library(sf)
 library(sp)
 library(mcstatsim)
+library(modelsummary)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -396,7 +397,7 @@ for (k in seq(1, 13, by = 1)) {
   
   
   }
-
+source("G:/My Drive/Lab Files/GNAR_FLU/Flu/functions_paper_modified.R")
 for(k in seq(1, 13, by = 1)){
   # fit GNAR models and select the best performing one
   res <- fit_and_predict_for_many(net = flu_net_knn,
@@ -422,7 +423,10 @@ knn_best_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>%
 knn_best_MA_df$network <-  "KNN"
 
 # Local relevance, node relevance, and cross-correlation plots -- should reflect clusters
-
+for(i in seq_along(nrow(knn_best_MA_df))){
+  
+  
+}
 
 # Submodel for FL ---------------------------------------------------------
 
