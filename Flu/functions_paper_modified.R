@@ -82,7 +82,7 @@ fit_and_predict <- function(alpha, beta,
 }
 
 
-fit_and_predict_for_many <- function(alpha_options = seq(1, 7), 
+fit_and_predict_for_many <- function(alpha_options = seq(1, 10), 
                                      beta_options = list(0, 1, 2, 3, 
                                                          4, 5,
                                                          c(1, 1), 
@@ -229,4 +229,71 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 7),
   return(BIC_RSS[, c(3, 1, 2)])
 }
 
-
+network_characteristics <- function(igraph_obj, 
+                                    network_name) {
+  
+  density <- igraph_obj %>% edge_density() 
+  apl <- igraph_obj %>%  mean_distance(directed = FALSE) 
+  
+  global_clust <- igraph_obj %>% transitivity(type = "global") 
+  mean_local_clust <- igraph_obj %>% 
+    transitivity(type = "local",
+                 isolates = "zero") %>% 
+    mean()
+  
+  
+  degree_v <- igraph_obj %>% igraph::degree()
+  av_degree <- degree_v %>% mean() 
+  
+  # model Bernoulli Random Graph to check for small world behaviour 
+  brg <- sample_gnm(n = igraph_obj %>% gorder(), 
+                          m = igraph_obj %>% gsize(), 
+                          directed = FALSE,
+                          loops = FALSE)
+  
+  apl_brg <- brg %>% mean_distance(directed = FALSE)
+  mean_clustering_brg <- brg %>% 
+    transitivity(type = "local",
+                 isolates = "zero") %>% 
+    mean()
+  
+  
+  max_degree <- degree_v %>% max() 
+  which(degree_v == max_degree) 
+  
+  min_degree <- degree_v %>% min() 
+  which(degree_v == min_degree) 
+  
+  # betweenness
+  bet <- betweenness(igraph_obj, 
+                     v=V(igraph_obj), 
+                     directed = FALSE)
+  
+  min_bet <- bet %>% min() 
+  bet[which(bet == min_bet)] 
+  
+  max_bet <- bet %>% max()
+  bet[which(bet == max_bet)] 
+  
+  
+  graph_char <- data.frame("metric" = c("av. degree", 
+                                        "density", 
+                                        "av. SPL", 
+                                        "global clust.", 
+                                        "av. local clust.", 
+                                        "av. betw.", 
+                                        "s.d. betw.", 
+                                        "BRG av. SPL", 
+                                        "BRG av. local clust."), 
+                           "values" = c(av_degree, 
+                                        density, 
+                                        apl, 
+                                        global_clust, 
+                                        mean_local_clust, 
+                                        mean(bet), 
+                                        sd(bet),
+                                        apl_brg, 
+                                        mean_clustering_brg)) 
+  colnames(graph_char) <- c("metric", network_name)
+  return(graph_char)
+}

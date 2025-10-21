@@ -1,5 +1,3 @@
-
-
 # load libraries ----------------------------------------------------------
 library(magrittr)
 library(tidyverse)
@@ -13,6 +11,7 @@ library(sf)
 library(sp)
 library(mcstatsim)
 library(modelsummary)
+# setwd("G:/My Drive/Lab Files/GNAR_FLU")
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -126,8 +125,8 @@ county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_nor
 # 
 # #DC
 # 
-# county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x =
-#                                                                           week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+months<- month(county_flu_ac_season_norm$year_week_dt)
+county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x = week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts") +geom_vline(xintercept = month(year_week_dt))
 
 
 # Prepare Data objects for GNAR -------------------------------------------
@@ -208,7 +207,7 @@ county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_nor
 # Import and Process Shapefile --------------------------------------------
 
 # County-level shapefile 
-US_county_shape<- st_read("G:/My Drive/Lab Files/GNAR_FLU/Shapefiles/cb_2020_us_county_5m/cb_2020_us_county_5m.shp")
+US_county_shape<- st_read("Shapefiles/cb_2020_us_county_5m/cb_2020_us_county_5m.shp")
 
 # Check that all counties are included in flu data
 #check names
@@ -335,18 +334,6 @@ flu_norm_ts <- as.matrix(flu_norm_ts_df)
 #   Massachusetts state submodel ------------------------------------------
 
 #Plot normalized Massachusetts series
-
-county_flu_norm_plot_MA <- county_flu_ac_season_norm %>% filter(county_fips %in% MA_county_shape$GEOID & year(year_week_dt)<2020) %>% ggplot(aes(x =year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
-
-
-
-flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
-
-flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
-
-# res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
-
-#centroids for MA
 MA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="MA")
 cent_coord_MA <-  MA_county_shape %>%
   st_geometry() %>%
@@ -355,10 +342,21 @@ cent_coord_MA <-  MA_county_shape %>%
 rownames(cent_coord_MA) <- MA_county_shape$GEOID
 
 
+county_flu_norm_plot_MA <- county_flu_ac_season_norm %>% filter(county_fips %in% MA_county_shape$GEOID & year(year_week_dt)<2020) %>% ggplot(aes(x =year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+flu_norm_ts_df_MA <- flu_norm_ts_df %>% select(starts_with("25"))
+
+flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
+
+# res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
+
+#centroids for MA
+
+
+
 # KNN for MA --------------------------------------------------------------
 
 knn_best_MA <- list()
-cobit_plots <- list()
+corbit_plots <- list()
 
 for (k in seq(1, 13, by = 1)) {
   # create nb list
@@ -390,14 +388,15 @@ for (k in seq(1, 13, by = 1)) {
   #Network autocorrelation to choose alpha
   
   weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
-  corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
+  # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
+# corbit_plots[[k]] <-  recordPlot()
   # Network partial autocorrelation
-  corbit_plot(vts=flu_norm_ts_MA, max_stage = 10, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
-
-  
+   corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
+pass
+corbit_plots[[k]] <-  recordPlot()
   
   }
-source("G:/My Drive/Lab Files/GNAR_FLU/Flu/functions_paper_modified.R")
+source("Flu/functions_paper_modified.R")
 for(k in seq(1, 13, by = 1)){
   # fit GNAR models and select the best performing one
   res <- fit_and_predict_for_many(net = flu_net_knn,
@@ -423,6 +422,13 @@ knn_best_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>%
 knn_best_MA_df$network <-  "KNN"
 
 # Local relevance, node relevance, and cross-correlation plots -- should reflect clusters
+#Clustering and network stats
+
+lapply(flu_net_knn_igraph, network_characteristics())
+
+
+
+
 for(i in seq_along(nrow(knn_best_MA_df))){
   
   
@@ -433,7 +439,7 @@ for(i in seq_along(nrow(knn_best_MA_df))){
 flu_norm_ts_df_FL <- flu_norm_ts_df %>% select(starts_with("12"))
 flu_norm_ts_FL <- as.matrix(flu_norm_ts_df_FL)
 
-FL_county_shape <- US_county_shape %>% subset(.,GEOID %in% include_fips & STUSPS=="FL")
+FL_county_shape <- US_county_shape %>% subset(.,GEOID %in% setdiff(include_fips, c("12087")) & STUSPS=="FL")
 cent_coord_FL <-  FL_county_shape %>%
   st_geometry() %>%
   st_centroid() %>%
@@ -442,7 +448,7 @@ rownames(cent_coord_FL) <- FL_county_shape$GEOID
 
 
 knn_best_FL <- list()
-for (k in seq(5, 66, by = 2)) {
+for (k in seq(5, 65, by = 2)) {
   # create nb list
   nb_knn <- knearneigh(x = cent_coord_FL,
                        k = k,
@@ -491,11 +497,11 @@ knn_5_igraph <- neighborsDataFrame(nb = nb_knn_5) %>%
 
 for (k in seq(15, 66, by = 2)) {
   # fit GNAR models and select the best performing one for each data subset
-  res <- fit_and_predict_for_many(net = flu_net_knn,
+  res_FL<- fit_and_predict_for_many(net = flu_net_knn,
                                   upper_limit = max_SPL_knn - 1,
                                   vts = flu_norm_ts_FL, weight_factor = NULL, inverse_distance = F)
   
-  res$hyperparam <- k
+  res_FL$hyperparam <- k
   
   # save best performing model for every k across all data subsets
   knn_best[[length(knn_best) + 1]] <- res
