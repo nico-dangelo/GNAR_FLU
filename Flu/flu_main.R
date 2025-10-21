@@ -125,8 +125,8 @@ county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_nor
 # 
 # #DC
 # 
-months<- month(county_flu_ac_season_norm$year_week_dt)
-county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x = week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts") +geom_vline(xintercept = month(year_week_dt))
+# months<- month(county_flu_ac_season_norm$year_week_dt)
+# county_flu_ac_season_norm %>% filter(county_fips==11001) %>% ggplot(aes(x = week(year_week_dt), y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts") +geom_vline(xintercept = month(year_week_dt))
 
 
 # Prepare Data objects for GNAR -------------------------------------------
@@ -391,9 +391,9 @@ for (k in seq(1, 13, by = 1)) {
   # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
 # corbit_plots[[k]] <-  recordPlot()
   # Network partial autocorrelation
-   corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
-pass
-corbit_plots[[k]] <-  recordPlot()
+   # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
+
+# corbit_plots[[k]] <-  recordPlot()
   
   }
 source("Flu/functions_paper_modified.R")
@@ -401,15 +401,20 @@ for(k in seq(1, 13, by = 1)){
   # fit GNAR models and select the best performing one
   res <- fit_and_predict_for_many(net = flu_net_knn,
                                           upper_limit = max_SPL_knn - 1,
-                                          vts = flu_norm_ts_MA)
+                                          vts = flu_norm_ts_MA, old = T)
 
-  res$hyperparam <- k
+  # res$hyperparam <- k
 
   # save best performing model for every k across all data subsets
   knn_best_MA[[length(knn_best_MA) + 1]] <- res
 
 }
+fit_and_predict(net = flu_net_knn,
+                upper_limit = max_SPL_knn - 1,
+                vts = flu_norm_ts_MA, old = T)
+# Complete MA network
 
+knn_best_MA_complete <-knn_best_MA[[13]]
 
 # Diagnostics for MA models -----------------------------------------------
 # Find best knn network model based on BIC
@@ -423,16 +428,22 @@ knn_best_MA_df$network <-  "KNN"
 
 # Local relevance, node relevance, and cross-correlation plots -- should reflect clusters
 #Clustering and network stats
-
-lapply(flu_net_knn_igraph, network_characteristics())
-
-
-
-
-for(i in seq_along(nrow(knn_best_MA_df))){
-  
-  
+for(i in 1:13){
+network_characteristics(flu_net_knn_igraph[[i]], network_name = "KNN")
 }
+# cross-correlation
+
+cross_correlation_plot(10, vts=flu_norm_ts_MA)
+#node relevance
+node_relevance_plot(flu_net_knn, r_star=2, node_names = colnames(flu_norm_ts_df_MA))
+#local relevance plot
+local_relevance_plot(network=flu_net_knn, r_star = 2)
+# active neigborhood plot
+active_node_plot(vts=flu_norm_ts_MA, flu_net_knn,)
+
+# Wagner plot for time dependence of alpha and beta
+# wagner_plot(vts_frames = flu_norm_ts_df_MA, 10, 12,weight_matrices = list(weigt_matrix_knn), )
+
 
 # Submodel for FL ---------------------------------------------------------
 

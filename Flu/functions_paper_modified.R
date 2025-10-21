@@ -19,7 +19,7 @@ fit_and_predict <- function(alpha, beta,
                             # if TRUE, the original GNARfit() function is applied
                             old = TRUE, 
                             
-                            return_model = FALSE, 
+                            return_model = TRUE, 
                             forecast_window
 ) {
   
@@ -219,7 +219,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 10),
                                inverse_distance = inverse_distance,
                                county_index = county_index, 
                                old = old, 
-                               forecast_window = forecast_window)
+                               forecast_window = forecast_window, return_model = FALSE)
     results$name <- name
     BIC_RSS <- rbind(BIC_RSS, 
                      results)
