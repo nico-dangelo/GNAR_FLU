@@ -19,7 +19,7 @@ fit_and_predict <- function(alpha, beta,
                             # if TRUE, the original GNARfit() function is applied
                             old = TRUE, 
                             
-                            return_model = TRUE, 
+                            return_model = FALSE, 
                             forecast_window
 ) {
   
@@ -71,7 +71,8 @@ fit_and_predict <- function(alpha, beta,
   
   if (!return_model) {
     # return data frame with RSS, log likelihood, and BIC value for model 
-    return(data.frame("RSS" = model$mod$residuals^2 %>% sum(), 
+    return(data.frame(
+    "RSS" = model$mod$residuals^2 %>% sum(), 
                       "LogLik" = logLik(model),
                       "BIC" = BIC(model)))
   } 
@@ -226,7 +227,9 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 10),
     
   }
   
-  return(BIC_RSS[, c(3, 1, 2)])
+  return(BIC_RSS
+         # [, c(3, 1, 2)]
+         )
 }
 
 network_characteristics <- function(igraph_obj, 

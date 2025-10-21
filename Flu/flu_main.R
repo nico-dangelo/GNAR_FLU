@@ -349,8 +349,9 @@ flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 
 # res <- GNARfit(vts=flu_norm_ts,net=knn2_GNAR)
 
-#centroids for MA
+#acfs by county for MA
 
+acf(flu_norm_ts_MA)
 
 
 # KNN for MA --------------------------------------------------------------
@@ -358,7 +359,7 @@ flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 knn_best_MA <- list()
 corbit_plots <- list()
 
-for (k in seq(1, 13, by = 1)) {
+for (k in seq(3, 13, by = 1)) {
   # create nb list
   nb_knn <- knearneigh(x = cent_coord_MA,
                        k = k,
@@ -387,8 +388,8 @@ for (k in seq(1, 13, by = 1)) {
 
   #Network autocorrelation to choose alpha
   
-  weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
-  # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
+weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
+# corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
 # corbit_plots[[k]] <-  recordPlot()
   # Network partial autocorrelation
    # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
@@ -397,24 +398,23 @@ for (k in seq(1, 13, by = 1)) {
   
   }
 source("Flu/functions_paper_modified.R")
-for(k in seq(1, 13, by = 1)){
+#set k>2 to avoid subgraph disjointness
+for(k in seq(3, 13, by = 1)){
   # fit GNAR models and select the best performing one
-  res <- fit_and_predict_for_many(net = flu_net_knn,
-                                          upper_limit = max_SPL_knn - 1,
+  res <- fit_and_predict_for_many( alpha_options = seq(1,7), net = flu_net_knn,
+                                           upper_limit = max_SPL_knn - 1,
                                           vts = flu_norm_ts_MA, old = T)
 
-  # res$hyperparam <- k
+   res$hyperparam <- k
 
   # save best performing model for every k across all data subsets
   knn_best_MA[[length(knn_best_MA) + 1]] <- res
 
 }
-fit_and_predict(net = flu_net_knn,
-                upper_limit = max_SPL_knn - 1,
-                vts = flu_norm_ts_MA, old = T)
-# Complete MA network
+# fit_and_predict(net = flu_net_knn,
+                # upper_limit = max_SPL_knn - 1,
+                # vts = flu_norm_ts_MA, old = T, forecast_window = 5)
 
-knn_best_MA_complete <-knn_best_MA[[13]]
 
 # Diagnostics for MA models -----------------------------------------------
 # Find best knn network model based on BIC
@@ -428,9 +428,9 @@ knn_best_MA_df$network <-  "KNN"
 
 # Local relevance, node relevance, and cross-correlation plots -- should reflect clusters
 #Clustering and network stats
-for(i in 1:13){
-network_characteristics(flu_net_knn_igraph[[i]], network_name = "KNN")
-}
+# for(i in 1:13){
+# network_characteristics(flu_net_knn_igraph[[i]], network_name = "KNN")
+# }
 # cross-correlation
 
 cross_correlation_plot(10, vts=flu_norm_ts_MA)
@@ -442,12 +442,19 @@ local_relevance_plot(network=flu_net_knn, r_star = 2)
 active_node_plot(vts=flu_norm_ts_MA, flu_net_knn,)
 
 # Wagner plot for time dependence of alpha and beta
-# wagner_plot(vts_frames = flu_norm_ts_df_MA, 10, 12,weight_matrices = list(weigt_matrix_knn), )
+
+# Annual Season Frames
+
+vts_season_frames_MA <- county_flu_ac_season_norm %>% select(county_fips, year_week_dt, conf_flu_norm, season) %>% filter(year(year_week_dt)<2020) %>% spread(county_fips,conf_flu_norm) %>% column_to_rownames(var="year_week_dt") %>% split(f=as.factor(.$season)) 
+# %>% map(., ~ (.x %>% select(-season)))
+
+wagner_plot(vts_frames = vts_season_frames_MA, network_list = list(flu_net_knn),  same_net = "no", 10, 3,weight_matrices = list(weight_matrix_knn))
 
 
 # Submodel for FL ---------------------------------------------------------
 
-flu_norm_ts_df_FL <- flu_norm_ts_df %>% select(starts_with("12"))
+flu_norm_ts_df_FL <- flu_norm_ts_df %>% select(starts_with("12") & !c("12087"))
+
 flu_norm_ts_FL <- as.matrix(flu_norm_ts_df_FL)
 
 FL_county_shape <- US_county_shape %>% subset(.,GEOID %in% setdiff(include_fips, c("12087")) & STUSPS=="FL")
@@ -472,14 +479,13 @@ for (k in seq(5, 65, by = 2)) {
     igraph::simplify()
   
   # create GNAR object
-  flu_net_knn <- flu_net_knn_igraph %>%
-    igraphtoGNAR()
+  flu_net_knn <- flu_net_knn_igraph %>% igraphtoGNAR()
   
   # create ordered county index data frame
   county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
                                    V() %>%
                                    names(),
-                                 "index" = seq(1, 67))
+                                 "index" = seq(1, 66))
   
   # compute an upper limit for neighbourhood stage
   max_SPL_knn <- flu_net_knn_igraph %>%
@@ -510,7 +516,7 @@ for (k in seq(15, 66, by = 2)) {
   # fit GNAR models and select the best performing one for each data subset
   res_FL<- fit_and_predict_for_many(net = flu_net_knn,
                                   upper_limit = max_SPL_knn - 1,
-                                  vts = flu_norm_ts_FL, weight_factor = NULL, inverse_distance = F)
+                                  vts = flu_norm_ts_FL, old=T)
   
   res_FL$hyperparam <- k
   
