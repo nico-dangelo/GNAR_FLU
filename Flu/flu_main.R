@@ -412,7 +412,7 @@ res_multi_alpha <- fit_and_predict_for_many(alpha_options = seq(1,10), net = flu
                                             upper_limit = max_SPL_knn - 1,
                                             vts = flu_norm_ts_MA, old = T, forecast_window = 10, globalalpha =F)
   # save best performing model for every k across all data; with and without global alphas
-
+res_multi_alpha$hyperparam <- k
   knn_best_MA[[length(knn_best_MA) + 1]] <- res_multi_alpha
 }
 # fit_and_predict(net = flu_net_knn,
