@@ -355,7 +355,7 @@ flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 
 
 # KNN for MA --------------------------------------------------------------
-
+source("Flu/functions_paper_modified.R")
 knn_best_MA <- list()
 corbit_plots <- list()
 
@@ -396,20 +396,24 @@ corbit_plots[[length(knn_best_MA) + 1]] <- corbit_plot(vts=flu_norm_ts_MA, max_s
 
 # corbit_plots[[k]] <-  recordPlot()
   
-  }
-source("Flu/functions_paper_modified.R")
+  
+
 #set k>2 to avoid subgraph disjointness
-for(k in seq(3, 13, by = 1)){
   # fit GNAR models and select the best performing one
-  res <- fit_and_predict_for_many(alpha_options = seq(1,7), net = flu_net_knn,
+  res_global <- fit_and_predict_for_many(alpha_options = seq(1,10), net = flu_net_knn,
                                            upper_limit = max_SPL_knn - 1,
-                                          vts = flu_norm_ts_MA, old = T, forecast_window = 25, globalalpha = FALSE)
+                                          vts = flu_norm_ts_MA, old = T, forecast_window = 10, globalalpha =T)
 
-   res$hyperparam <- k
+   res_global$hyperparam <- k
+   knn_best_MA[[length(knn_best_MA) + 1]] <- res_global   
 
-  # save best performing model for every k across all data subsets
-  knn_best_MA[[length(knn_best_MA) + 1]] <- res
+   
+res_multi_alpha <- fit_and_predict_for_many(alpha_options = seq(1,10), net = flu_net_knn,
+                                            upper_limit = max_SPL_knn - 1,
+                                            vts = flu_norm_ts_MA, old = T, forecast_window = 10, globalalpha =F)
+  # save best performing model for every k across all data; with and without global alphas
 
+  knn_best_MA[[length(knn_best_MA) + 1]] <- res_multi_alpha
 }
 # fit_and_predict(net = flu_net_knn,
                 # upper_limit = max_SPL_knn - 1,
@@ -422,8 +426,14 @@ for(k in seq(3, 13, by = 1)){
 
 
 # Find best knn network model based on BIC
-
+# DF with all RSS, LogLik, BIC
+knn_res_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>%
+  as.data.frame()
+knn_res_MA_df$network <-  "KNN"
 # filter the best performing GNAR model for each data subset across all neighbourhood sizes
+
+
+
 knn_best_MA_df <- do.call(rbind.data.frame, knn_best_MA) %>%
   filter(BIC == min(BIC)) %>%
   ungroup() %>%
@@ -442,7 +452,7 @@ cross_correlation_plot(10, vts=flu_norm_ts_MA)
 node_relevance_plot(flu_net_knn, r_star=2, node_names = colnames(flu_norm_ts_df_MA))
 #local relevance plot
 local_relevance_plot(network=flu_net_knn, r_star = 2)
-# active neigborhood plot
+# active neighborhood plot
 # active_node_plot(vts=flu_norm_ts_MA, flu_net_knn,)
 
 # Wagner plot for time dependence of alpha and beta
