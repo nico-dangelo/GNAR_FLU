@@ -19,7 +19,8 @@ county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imput
 county_week_flu_v3_imputed_clean <- county_week_flu_v3_imputed
 county_week_flu_v3_imputed_clean$year_week_dt <- as_date(county_week_flu_v3_imputed$year_week_dt, format="%G-%V-%u")
 
-
+#Source function file
+source("Flu/functions_paper_modified.R")
 # # Subset examples----------------------------------------
 # #Palm Beach County 
 # county_week_flu_v3_imputed_clean_PBC <- county_week_flu_v3_imputed_clean %>% filter(county_fips==12099)
@@ -355,7 +356,7 @@ flu_norm_ts_MA <- as.matrix(flu_norm_ts_df_MA)
 
 
 # KNN for MA --------------------------------------------------------------
-source("Flu/functions_paper_modified.R")
+
 knn_best_MA <- list()
 corbit_plots <- list()
 
@@ -539,3 +540,159 @@ vts_season_frames_MA <- county_flu_ac_season_norm %>% select(county_fips, year_w
 #   
 # }
 # 
+
+
+# Submodel  for CA --------------------------------------------------------------
+CA_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="CA")
+cent_coord_CA <-  CA_county_shape %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates()
+rownames(cent_coord_CA) <- CA_county_shape$GEOID
+
+plot(st_geometry(CA_county_shape), border="grey")
+text(cent_coord_CA[, 1],
+               cent_coord_CA[, 2],
+               labels = rownames(cent_coord_CA),
+               cex = 0.8, font = 2, pos = 1)
+
+county_flu_norm_plot_CA <- county_flu_ac_season_norm %>% filter(county_fips %in% CA_county_shape$GEOID & year(year_week_dt)<2020) %>% ggplot(aes(x =year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+flu_norm_ts_df_CA <- flu_norm_ts_df %>% select(starts_with("06"))
+
+flu_norm_ts_CA <- as.matrix(flu_norm_ts_df_CA)
+
+
+# KNN for CA --------------------------------------------------------------
+knn_best_CA <- list()
+for(k in seq(2,57,by=1)){
+  # create nb list
+  nb_knn <- knearneigh(x = cent_coord_CA,
+                       k = k,
+                       longlat = TRUE) %>%
+    knn2nb(row.names = cent_coord_CA %>% row.names())
+
+  # Create igraph from adjacency matrix
+  flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
+    graph_from_data_frame(directed = FALSE) %>%
+    igraph::simplify()
+  
+  # create GNAR object
+  flu_net_knn <- flu_net_knn_igraph %>% igraphtoGNAR()
+  
+  # create ordered county index data frame
+  county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
+                                   V() %>%
+                                   names(),
+                                 "index" = seq(1, 58))
+  
+  # compute an upper limit for neighbourhood stage
+  max_SPL_knn <- flu_net_knn_igraph %>%
+    get_diameter(directed = FALSE) %>%
+    length()
+  
+  #Network autocorrelation to choose alpha
+  
+  # weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
+  # corbit_plots[[length(knn_best_MA) + 1]] <- corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
+  # 
+  # corbit_plots[[k]] <-  recordPlot()
+  # Network partial autocorrelation
+  # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
+  
+  # corbit_plots[[k]] <-  recordPlot()
+  
+  
+  
+
+  # fit GNAR models and select the best performing one
+  res_global <- fit_and_predict_for_many(alpha_options = seq(1,10), net = flu_net_knn,
+                                         upper_limit = max_SPL_knn - 1,
+                                         vts = flu_norm_ts_CA, old = T, forecast_window = 10, globalalpha =T)
+  
+  res_global$hyperparam <- k
+  knn_best_CA[[length(knn_best_CA) + 1]] <- res_global   
+  
+  
+  # res_multi_alpha <- fit_and_predict_for_many(alpha_options = seq(1,10), net = flu_net_knn,
+  #                                             upper_limit = max_SPL_knn - 1,
+  #                                             vts = flu_norm_ts_CA, old = T, forecast_window = 10, globalalpha =F)
+  # # save best performing model for every k across all data; with and without global alphas
+  # res_multi_alpha$hyperparam <- k
+  # knn_best_CA[[length(knn_best_CA) + 1]] <- res_multi_alpha
+}
+
+
+
+# Submodel for IL ---------------------------------------------------------
+
+IL_county_shape <- US_county_shape%>% subset(.,GEOID %in% include_fips & STUSPS=="IL")
+cent_coord_IL <-  IL_county_shape %>%
+  st_geometry() %>%
+  st_centroid() %>%
+  st_coordinates()
+rownames(cent_coord_IL) <- IL_county_shape$GEOID
+
+plot(st_geometry(IL_county_shape), border="grey")
+text(cent_coord_IL[, 1],
+     cent_coord_IL[, 2],
+     labels = rownames(cent_coord_IL),
+     cex = 0.8, font = 2, pos = 1)
+
+county_flu_norm_plot_IL <- county_flu_ac_season_norm %>% filter(county_fips %in% IL_county_shape$GEOID & year(year_week_dt)<2020) %>% ggplot(aes(x =year_week_dt, y = conf_flu_norm, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Normalized Confirmed flu case counts")
+flu_norm_ts_df_IL <- flu_norm_ts_df %>% select(starts_with("17"))
+
+flu_norm_ts_IL <- as.matrix(flu_norm_ts_df_IL)
+
+
+
+knn_best_IL <- list()
+for(k in seq(1,101,by=1)){
+  # create nb list
+  nb_knn <- knearneigh(x = cent_coord_IL,
+                       k = k,
+                       longlat = TRUE) %>%
+    knn2nb(row.names = cent_coord_IL %>% row.names())
+  
+  # Create igraph from adjacency matrix
+  flu_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>%
+    graph_from_data_frame(directed = FALSE) %>%
+    igraph::simplify()
+  
+  # create GNAR object
+  flu_net_knn <- flu_net_knn_igraph %>% igraphtoGNAR()
+  
+  # create ordered county index data frame
+  county_index_knn <- data.frame("GEOID" = flu_net_knn_igraph %>%
+                                   V() %>%
+                                   names(),
+                                 "index" = seq(1, 102))
+  
+  # compute an upper limit for neighbourhood stage
+  max_SPL_knn <- flu_net_knn_igraph %>%
+    get_diameter(directed = FALSE) %>%
+    length()
+  
+  #Network autocorrelation to choose alpha
+  
+  # weight_matrix_knn <- weights_matrix(flu_net_knn, max_r_stage = max_SPL_knn)
+  # corbit_plots[[length(knn_best_MA) + 1]] <- corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn)
+  # 
+  # corbit_plots[[k]] <-  recordPlot()
+  # Network partial autocorrelation
+  # corbit_plot(vts=flu_norm_ts_MA, max_stage = max_SPL_knn, net=flu_net_knn, max_lag = 10, weight_matrix = weight_matrix_knn, partial = T)
+  
+  # corbit_plots[[k]] <-  recordPlot()
+  
+  
+  
+  
+  # fit GNAR models and select the best performing one
+  res_global <- fit_and_predict_for_many(alpha_options = seq(1,10), net = flu_net_knn,
+                                         upper_limit = max_SPL_knn - 1,
+                                         vts = flu_norm_ts_IL, old = T, forecast_window = 10, globalalpha =T)
+  
+  res_global$hyperparam <- k
+  knn_best_IL[[length(knn_best_IL) + 1]] <- res_global   
+  
+}
+
