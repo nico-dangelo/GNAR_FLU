@@ -12,12 +12,6 @@ library(sp)
 library(mcstatsim)
 library(modelsummary)
 # setwd("G:/My Drive/Lab Files/GNAR_FLU")
-# Read data ---------------------------------------------------------------
-county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
-
-# Clean data and fix formats -----------------------------------------------
-county_week_flu_v3_imputed_clean <- county_week_flu_v3_imputed
-county_week_flu_v3_imputed_clean$year_week_dt <- as_date(county_week_flu_v3_imputed$year_week_dt, format="%G-%V-%u")
 
 #Source function file
 source("Flu/functions_paper_modified.R")
@@ -69,48 +63,6 @@ source("Flu/functions_paper_modified.R")
 #                                                                                                                                                         year_week_dt, y = conf_flu, color = county_fips)) + geom_point() + geom_line() + xlab("Date (year_week_dt)") +ylab("Confirmed flu case counts")
 # plot_Miami_Cook_Fulton
 # 
-# # Normalization -----------------------------------------------------------
-# #Import all cause mortality data
-# 
-county_week_ac_v3_imputed <- readr::read_csv("Data/Flu/county_week_ac_v3_imputed.csv")
-
-# Normalize flu data by ac
-
-# extract year from year_week
-county_week_ac_v3_imputed_year <-  county_week_ac_v3_imputed %>% mutate(year=sub("-.*","",year_week))
-
-#compute year-level mean ac
-county_year_ac_mean <- county_week_ac_v3_imputed_year %>% group_by(county_fips, year) %>% mutate(year_ac_mean=mean(all_cause_wtd))
-
-# Normalize county-week ac by yearly means
-
-county_week_ac_norm <-  county_year_ac_mean %>% group_by(county_fips, year) %>% mutate(week_ac_norm=all_cause_wtd/year_ac_mean)
-
-
-
-#merge ac with flu data by county and year_week
-
-county_week_flu_ac_merged <- merge.data.frame(county_week_flu_v3_imputed_clean, county_week_ac_norm)
-
-# adjust conf_flu by normalized county-week ac
-
-county_week_flu_ac_merged_adj<- county_week_flu_ac_merged  %>% mutate(conf_flu_adj=conf_flu/week_ac_norm)
-
-# import seasonal file
-county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imputed.csv") %>% rename(season_all_cause=all_cause, season_all_cause_wtd=all_cause_wtd)
-
-
-# Note: season = July to June; partition weekly data with season flag
-
-county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season=ifelse(month(year_week_dt) >= 7,
-                                                                               paste0(year(year_week_dt), "-", year(year_week_dt) + 1),     # e.g., "2023-2024"
-                                                                               paste0(year(year_week_dt) - 1, "-", year(year_week_dt))))
-
-county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
-
-# normalize by season_all_cause
-
-county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_norm= conf_flu_adj/season_all_cause_wtd)
 
 
 # # plot normalized data
@@ -205,18 +157,9 @@ county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_nor
 # KNN network -------------------------------------------------------------
 
 
-# Import and Process Shapefile --------------------------------------------
 
-# County-level shapefile 
-US_county_shape<- st_read("Shapefiles/cb_2020_us_county_5m/cb_2020_us_county_5m.shp")
 
-# Check that all counties are included in flu data
-#check names
-exclude_names <- setdiff(US_county_shape$NAMELSAD, county_flu_ac_season_norm$county_name)
-#check fips
-exclude_fips <- setdiff(US_county_shape$GEOID, county_flu_ac_season_norm$county_fips)
 
-include_fips <- intersect(US_county_shape$GEOID, county_flu_ac_season_norm$county_fips)
 
 
 
@@ -239,32 +182,12 @@ include_fips <- intersect(US_county_shape$GEOID, county_flu_ac_season_norm$count
 
 
 
-#function to extract neighbor dataframe
-neighborsDataFrame <- function(nb) {
-  
-  ks = data.frame(k = unlist(mapply(rep, 1:length(nb), 
-                                    sapply(nb, length), 
-                                    SIMPLIFY = FALSE) ), 
-                  k_nb = unlist(nb) )
-  
-  nams = data.frame(id = attributes(nb)$region.id, 
-                    k = 1:length(nb))
-  
-  o = merge(ks, nams, 
-            by.x = 'k', 
-            by.y = 'k')
-  o = merge(o, nams, 
-            by.x = 'k_nb', 
-            by.y = 'k', 
-            suffixes = c("","_neigh"))
-  
-  o[, c("id", "id_neigh")] %>% return()
-}
+
 
 # #Find optimal k for KNN GNAR models
 
 # Original code from IR
-# knn_best <- list()
+
 # 
 # for (k in seq(1, 26, by = 2)) {
 #   # create nb list

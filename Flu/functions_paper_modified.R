@@ -1,3 +1,67 @@
+#Convert State USPS abbreviation to FIPS prefix
+require(tidyverse)
+STUSPStoSTATEFP <- function(USPS){
+  if(!is.null(USPS))
+    if(!is.null(US_county_shape))
+      fips_lookup <- c(
+        "AL" = "01", "AK" = "02", "AZ" = "04", "AR" = "05", "CA" = "06",
+        "CO" = "08", "CT" = "09", "DE" = "10", "FL" = "12", "GA" = "13",
+        "HI" = "15", "ID" = "16", "IL" = "17", "IN" = "18", "IA" = "19",
+        "KS" = "20", "KY" = "21", "LA" = "22", "ME" = "23", "MD" = "24",
+        "MA" = "25", "MI" = "26", "MN" = "27", "MS" = "28", "MO" = "29",
+        "MT" = "30", "NE" = "31", "NV" = "32", "NH" = "33", "NJ" = "34",
+        "NM" = "35", "NY" = "36", "NC" = "37", "ND" = "38", "OH" = "39",
+        "OK" = "40", "OR" = "41", "PA" = "42", "RI" = "44", "SC" = "45",
+        "SD" = "46", "TN" = "47", "TX" = "48", "UT" = "49", "VT" = "50",
+        "VA" = "51", "WA" = "53", "WV" = "54", "WI" = "55", "WY" = "56",
+        "DC" = "11", "AS" = "60", "GU" = "66", "MP" = "69", "PR" = "72",
+        "VI" = "78"
+      )
+  STATEFP <- fips_lookup[USPS]
+  
+  return(STATEFP)
+}
+#function to extract neighbor dataframe
+neighborsDataFrame <- function(nb) {
+  
+  ks = data.frame(k = unlist(mapply(rep, 1:length(nb), 
+                                    sapply(nb, length), 
+                                    SIMPLIFY = FALSE) ), 
+                  k_nb = unlist(nb) )
+  
+  nams = data.frame(id = attributes(nb)$region.id, 
+                    k = 1:length(nb))
+  
+  o = merge(ks, nams, 
+            by.x = 'k', 
+            by.y = 'k')
+  o = merge(o, nams, 
+            by.x = 'k_nb', 
+            by.y = 'k', 
+            suffixes = c("","_neigh"))
+  
+  o[, c("id", "id_neigh")] %>% return()
+}
+#Function to fit KNN objects  
+KNN <- function(state_fp, state_USPS=NULL, county_fips_list=NULL,...){
+  #take either single state prefix, postal abbreviation, or list of county fips codes
+  if(!is.null(state_USPS){state_fp=USPStoSTATEFP(state_USPS)}
+  if(!is.null(state_fp))
+    if(is.null(state_USPS)){state_USPS=}
+  if(state_fp %in% US_county_shape$STATEFP)
+  if(!is.null(county_fips_list))
+  if(is.character(county_fips_list))
+
+  assign(paste0("knn_best","" <- list()
+  
+  
+  
+  
+
+for(k in length())
+  
+  }
+
 fit_and_predict <- function(alpha, beta, 
                             globalalpha, 
                             net,
