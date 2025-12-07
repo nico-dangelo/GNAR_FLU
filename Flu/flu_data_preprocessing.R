@@ -1,3 +1,10 @@
+
+# Libraries ---------------------------------------------------------------
+
+library(tidyverse)
+library(spdep)
+library(sf)
+library(sp)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
