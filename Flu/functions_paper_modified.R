@@ -1,12 +1,12 @@
-#Convert State USPS abbreviation to FIPS prefix or vice versa
+#Convert State USPS abbreviation to FIPS prefix
 
 library(igraph)
 
-source("flu_data_preprocessing.R")
+source("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Flu/flu_data_preprocessing.R")
 
 
-STUSPStoSTATEFP <- function(usps){
-  if(!is.null(USPS))
+state_fips_lookup <- function(usps){
+  if(!is.null(usps))
     if(!is.null(US_county_shape))
       fips_lookup <- c(
         "AL" = "01", "AK" = "02", "AZ" = "04", "AR" = "05", "CA" = "06",
@@ -25,16 +25,41 @@ STUSPStoSTATEFP <- function(usps){
   statefp <- fips_lookup[usps]
   
   return(statefp)
-  
-
-# Function to create universal FIPS vector for use other functions ---------------
-make_fips_vec <- function(statefp, stusps=NULL, US=F,...){
-fips_vec <- c()
-if(US==T){fips_vec<- US_county_shape$GEOID}
-else if(!is.null(STUSPS)){fips_vec <- US_county_shape %>% filter(STUSPS==stusps)%>% select(GEOID)}
-else {fips_vec <- US_county_shape %>% filter(STATEFP==statefp)%>% select(GEOID)} 
-return(fips_vec)}
 }
+
+# Function to create universal FIPS vector for use in other functions ---------------
+make_fips_vec <- function(fips_query, US_county_shape){
+  fips_query <- as.character(fips_query)
+  #All available FIPS codes
+  # all_fips<- US_county_shape$GEOID
+fips_vec <- c()
+# if(fips_query=="all"){fips_vec<- all_fips}
+for (i in fips_query){
+  if (grepl("^[A-Za-z]{2}$", i)) {
+    # USPS abbreviation
+    i <- toupper(i)
+    state_prefix <- state_fips_lookup(i) |> unname()
+    fips <- US_county_shape$GEOID[US_county_shape$STATEFP==state_prefix]
+    fips_vec <- c(fips_vec,fips)  
+  } else if (grepl("^[0-9]{1,2}$", i)) {
+      #State FIPS Prefix
+    state_prefix <- sprintf("%02s", i)
+    fips <- US_county_shape$GEOID[US_county_shape$STATEFP==state_prefix]
+    fips_vec <- c(fips_vec, fips)
+  } else if (grepl("^[0-9]{4,5}$", i)){
+    #County FIPS code
+    county_fips <- sprintf("%05s",i)
+    if (county_fips %in% US_county_shape$GEOID){
+      fips_vec <- c(fips_vec, county_fips)
+    } else {
+      warning(paste("Invalid input format:", i))
+      next
+    }
+  }
+}
+return(unique(fips_vec))
+}
+
 #function to extract neighbor dataframe
 neighborsDataFrame <- function(nb) {
   
@@ -61,45 +86,34 @@ neighborsDataFrame <- function(nb) {
 create_county_shape <- function(fips_vec, sub_name){
   if(!is.null(fips_vec))
   if(!is.null(US_county_shape)){
-  assign(paste(as.character(sub_name), "county_shape", sep="_"), US_county_shape%>% subset(.,GEOID %in% fips_vec))}
+  assign(paste(as.character(sub_name), "county_shape", sep="_"), US_county_shape%>% subset(.,GEOID %in% fips_vec), envir = .GlobalEnv)}
 }
+# Create cent_coord object for subset from county shape object
+create_cent_coord <- function(county_shape){
+  assign(paste("cent_coord", sub("_.*","", deparse(substitute(county_shape))), sep="_"), county_shape %>%
+    st_geometry() %>%
+    st_centroid() %>%
+    st_coordinates(),
+envir = .GlobalEnv)
+  }
 
 # Normalized flu time series function -------------------------------------
 
-create_ts <- function(df = county_flu_ac_season_norm, sub) {
+create_ts <- function(df = county_flu_ac_season_norm, county_shape) {
   #need to source preprocessing file first!
-  # take normalized flu data frame "df", and geographic subset identifier
-  # create overall time series data frame object
+  # take normalized flu data frame "df", and county shape object
+  # create overall time series data frame object and convert to matrix
   assign(
-    paste("flu_norm_ts_df", as.char(sub), sep="_"),
+    paste("flu_norm_ts", sub("_.*","", deparse(substitute(county_shape))), sep="_"),
     df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <
-                                                                         2020) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
-                                                                                                                                               "year_week_dt"), envir = .GlobalEnv
+                                                                         2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
+                                                                                                                                               "year_week_dt") %>% as.matrix(), envir = .GlobalEnv
   )
-  #convert to matrix form
-  assign(paste0("flu_norm_ts", as.char(sub)), as.matrix(flu_norm_ts_df), envir = .GlobalEnv)
 }
 
 #Function to fit KNN objects  
-KNN <- function(state_fp, state_USPS=NULL, county_fips_list=NULL,...){
-  #take single state prefix, postal abbreviation, or list of county fips codes
-  if(!is.null(state_USPS){state_fp=USPStoSTATEFP(state_USPS)}
-  if(!is.null(state_fp))
-    if(is.null(state_USPS)){state_USPS=USPStoSTATEFP(state_fp)}
-  if(state_fp %in% US_county_shape$STATEFP)
-  if(!is.null(county_fips_list))
-  if(is.character(county_fips_list))
-# need universal identifier based on sanitized input
-  assign(paste0("knn_best","",as.character(id)) <- list()))
-  
-  
-  
-  
-
-for(k in length(id)-1){
-  
-}
-  
+create_KNN_objects <- function(cent_coord, max_k=nrow(cent_coord)){
+assign(paste())
   }
 
 fit_and_predict <- function(alpha, beta, 
