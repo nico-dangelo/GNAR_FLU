@@ -1,10 +1,11 @@
-#Convert State USPS abbreviation to FIPS prefix
+
 
 library(igraph)
 
 source("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Flu/flu_data_preprocessing.R")
 
-
+# Functions to create universal FIPS vector for use in other functions ---------------
+#Convert State USPS abbreviation to FIPS prefix
 state_fips_lookup <- function(usps){
   if(!is.null(usps))
     if(!is.null(US_county_shape))
@@ -26,8 +27,7 @@ state_fips_lookup <- function(usps){
   
   return(statefp)
 }
-
-# Function to create universal FIPS vector for use in other functions ---------------
+# create universal FIPS vector 
 make_fips_vec <- function(fips_query, US_county_shape){
   fips_query <- as.character(fips_query)
   #All available FIPS codes
@@ -59,6 +59,9 @@ for (i in fips_query){
 }
 return(unique(fips_vec))
 }
+
+# Accessory functions for network construction ----------------------------
+
 
 #function to extract neighbor dataframe
 neighborsDataFrame <- function(nb) {
@@ -111,11 +114,50 @@ create_ts <- function(df = county_flu_ac_season_norm, county_shape) {
   )
 }
 
-#Function to fit KNN objects  
-create_KNN_objects <- function(cent_coord, max_k=nrow(cent_coord)){
-assign(paste())
-  }
+# GNAR Network object construction ----------------------------------------
 
+
+#Function to create KNN GNAR objects  
+create_KNN_objects <- function(cent_coord, min_k=2, max_k=(nrow(cent_coord)-1), iter.k=1, keep.igraph=TRUE){
+knn_GNAR_list <- list()
+if(keep.igraph){
+knn_igraph_list <- list()}
+for(k in seq(min_k, max_k, by=iter.k)){}
+#knn neighborhood object
+  nb_knn <- knearneigh(x=cent_coord,
+                       k=k,
+                       longlat=T) %>%
+    knn2nb(row.names=row.names(cent_coord))
+    
+#igraph object from adjacency matrix
+knn_igraph <- neighborsDataFrame(nb=nb_knn) %>%
+  igraph::graph_from_data_frame(directed=FALSE) %>%
+  igraph::simplify()
+if(keep.igraph){
+  knn_igraph_list[[length(igraph_list)+1]] <- knn_igraph
+}
+# create GNAR object  
+knn_GNAR <- GNAR::igraphtoGNAR(knn_igraph)
+knn_GNAR_list[[length(knn_GNAR_list)+1]] <- knn_GNAR
+#create ordered county index data frame
+
+county_index_knn <- data.frame("GEOID" = knn_igraph %>%
+                                 V() %>%
+                                 names(),
+                               "index" = seq(1, nrow(cent_coord)))
+
+#compute neighborhood stage upper limit
+
+max_SPL_knn <- knn_igraph %>%
+  get_diameter(directed = FALSE) %>%
+  length()
+return(ifelse(keep.igraph, list(knn_igraph_list, knn_GNAR_list), knn_GNAR_list))}    
+
+
+# #GNAR fitting and prediction functions. Modified from Armbruster --------
+
+
+    
 fit_and_predict <- function(alpha, beta, 
                             globalalpha, 
                             net,
