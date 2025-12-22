@@ -1,7 +1,7 @@
 
 
 library(igraph)
-
+library(GNAR)
 source("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Flu/flu_data_preprocessing.R")
 
 # Functions to create universal FIPS vector for use in other functions ---------------
@@ -89,16 +89,44 @@ neighborsDataFrame <- function(nb) {
 create_county_shape <- function(fips_vec, sub_name){
   if(!is.null(fips_vec))
   if(!is.null(US_county_shape)){
-  assign(paste(as.character(sub_name), "county_shape", sep="_"), US_county_shape%>% subset(.,GEOID %in% fips_vec), envir = .GlobalEnv)}
-}
+  county_shape<-US_county_shape%>% subset(.,GEOID %in% fips_vec)
+  }
+return(county_shape)}
 # Create cent_coord object for subset from county shape object
 create_cent_coord <- function(county_shape){
-  assign(paste("cent_coord", sub("_.*","", deparse(substitute(county_shape))), sep="_"), county_shape %>%
+  cent_coord<-  county_shape %>%
     st_geometry() %>%
     st_centroid() %>%
-    st_coordinates(),
-envir = .GlobalEnv)
+    st_coordinates()
+}
+
+
+# Great circle distance matrix for Inverse distance weighting
+
+# data should be a cent_coord object
+circle_distance <- function(data) { 
+  pairwise_dist <- matrix(nrow = nrow(data), ncol = ncol(data))
+  for (i in seq(1, dim(data)[1])) {
+    for (j in seq(1, dim(data)[1])) {
+      long1 <- data[i, 1]
+      long2 <- data[j, 1]
+      lat1 <- data[i, 2]
+      lat2 <- data[j, 2]
+      pairwise_dist[i, j] <- distm(x = c(long1, lat1), 
+                                   y = c(long2, lat2), 
+                                   fun = distHaversine)
+    }
   }
+  # transform into data frame 
+  dist_df <- pairwise_dist %>% as.data.frame()
+  rownames(dist_df) <- rownames(data)
+  colnames(dist_df) <- rownames(data)
+  
+  # substitute zero diagonals with NA  
+  dist_df[dist_df == 0] <- NA
+  
+  return(dist_df)
+}
 
 # Normalized flu time series function -------------------------------------
 
@@ -120,9 +148,10 @@ create_ts <- function(df = county_flu_ac_season_norm, county_shape) {
 #Function to create KNN GNAR objects  
 create_KNN_objects <- function(cent_coord, min_k=2, max_k=(nrow(cent_coord)-1), iter.k=1, keep.igraph=TRUE){
 knn_GNAR_list <- list()
+max_SPL_knn_list <- list()
 if(keep.igraph){
 knn_igraph_list <- list()}
-for(k in seq(min_k, max_k, by=iter.k)){}
+for(k in seq(min_k, max_k, by=iter.k)){
 #knn neighborhood object
   nb_knn <- knearneigh(x=cent_coord,
                        k=k,
@@ -134,7 +163,7 @@ knn_igraph <- neighborsDataFrame(nb=nb_knn) %>%
   igraph::graph_from_data_frame(directed=FALSE) %>%
   igraph::simplify()
 if(keep.igraph){
-  knn_igraph_list[[length(igraph_list)+1]] <- knn_igraph
+  knn_igraph_list[[length(knn_igraph_list)+1]] <- knn_igraph
 }
 # create GNAR object  
 knn_GNAR <- GNAR::igraphtoGNAR(knn_igraph)
@@ -151,7 +180,13 @@ county_index_knn <- data.frame("GEOID" = knn_igraph %>%
 max_SPL_knn <- knn_igraph %>%
   get_diameter(directed = FALSE) %>%
   length()
-return(ifelse(keep.igraph, list(knn_igraph_list, knn_GNAR_list), knn_GNAR_list))}    
+max_SPL_knn_list[[length(max_SPL_knn_list)+1]] <- max_SPL_knn
+}
+if(keep.igraph){
+  return(list(county_index_knn, max_SPL_knn_list, knn_igraph_list, knn_GNAR_list))
+}
+else return(list(county_index_knn, max_SPL_knn_list, knn_GNAR_list))
+}    
 
 
 # #GNAR fitting and prediction functions. Modified from Armbruster --------
@@ -187,16 +222,16 @@ fit_and_predict <- function(alpha, beta,
   
   # fit model according to given settings 
   if (weight_factor %>% is.null()) {
-    # if (!old) {
-    #   model <- GNARfit_weighting(vts = vts[1:train_window, ], 
-    #                              net = net,
-    #                              alphaOrder = alpha, 
-    #                              betaOrder = beta, 
-    #                              globalalpha = globalalpha, 
-    #                              inverse_distance = inverse_distance,
-    #                              county_index = county_index
-    #   )
-    # } 
+    if (!old) {
+      model <- GNARfit_weighting(vts = vts[1:train_window, ],
+                                 net = net,
+                                 alphaOrder = alpha,
+                                 betaOrder = beta,
+                                 globalalpha = globalalpha,
+                                 inverse_distance = inverse_distance,
+                                 county_index = county_index
+      )
+    }
     if (old) {
       model <- GNARfit(vts = vts[1:train_window, ], 
                        net = net,
@@ -207,17 +242,17 @@ fit_and_predict <- function(alpha, beta,
     }
     
   } else {
-    # if (!old) {
-    #   model <- GNARfit_weighting(vts = vts[1:train_window, ],
-    #                              net = net, 
-    #                              alphaOrder = alpha, 
-    #                              betaOrder = beta, 
-    #                              globalalpha = globalalpha, 
-    #                              fact.var = weight_factor, 
-    #                              inverse_distance = inverse_distance,
-    #                              county_index = county_index
-    #   )
-    # }
+    if (!old) {
+      model <- GNARfit_weighting(vts = vts[1:train_window, ],
+                                 net = net,
+                                 alphaOrder = alpha,
+                                 betaOrder = beta,
+                                 globalalpha = globalalpha,
+                                 fact.var = weight_factor,
+                                 inverse_distance = inverse_distance,
+                                 county_index = county_index
+      )
+    }
     if (old) {
       model <- GNARfit(vts = vts[1:train_window, ], 
                        net = net,
