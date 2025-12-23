@@ -311,7 +311,7 @@ moran_I_permutation_test <- function(data = county_flu_ac_season_norm,
   
   
   # Visualize and save plot 
-  ggplot(moran_df, 
+  p <-ggplot(moran_df, 
          aes(x = dates, 
              y = observed)) +
     geom_line() +
@@ -328,7 +328,8 @@ moran_I_permutation_test <- function(data = county_flu_ac_season_norm,
               linetype = "dashed", color = "#3A3B3C") +
     scale_color_brewer(palette = "Set1") + 
     theme(legend.position = "None")
-  ggsave(paste0("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Figures/MoransI/Flu/", name, ".pdf", collapse = ""), 
+  print(p)
+  ggsave(paste0("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Figures/MoransI/Flu/", name, ".png", collapse = ""), plot=p, 
          width = 27, height = 14, unit = "cm")
   return(list(p = morans_p, 
               number = morans_number_outside))
