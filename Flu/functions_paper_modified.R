@@ -2,6 +2,7 @@
 
 library(igraph)
 library(GNAR)
+library(geosphere)
 source("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Flu/flu_data_preprocessing.R")
 
 # Functions to create universal FIPS vector for use in other functions ---------------
@@ -98,14 +99,15 @@ create_cent_coord <- function(county_shape){
     st_geometry() %>%
     st_centroid() %>%
     st_coordinates()
-}
+rownames(cent_coord) <- county_shape$GEOID
+return(cent_coord)}
 
 
 # Great circle distance matrix for Inverse distance weighting
 
 # data should be a cent_coord object
 circle_distance <- function(data) { 
-  pairwise_dist <- matrix(nrow = nrow(data), ncol = ncol(data))
+  pairwise_dist <- matrix(nrow = nrow(data), ncol = nrow(data))
   for (i in seq(1, dim(data)[1])) {
     for (j in seq(1, dim(data)[1])) {
       long1 <- data[i, 1]
@@ -117,30 +119,222 @@ circle_distance <- function(data) {
                                    fun = distHaversine)
     }
   }
-  # transform into data frame 
+  # transform into data frame
   dist_df <- pairwise_dist %>% as.data.frame()
   rownames(dist_df) <- rownames(data)
   colnames(dist_df) <- rownames(data)
-  
-  # substitute zero diagonals with NA  
+
+  # substitute zero diagonals with NA
   dist_df[dist_df == 0] <- NA
-  
+   # return(pairwise_dist)
   return(dist_df)
 }
 
-# Normalized flu time series function -------------------------------------
+network_characteristics <- function(igraph_obj, 
+                                    network_name) {
+  
+  density <- igraph_obj %>% edge_density() 
+  apl <- igraph_obj %>%  mean_distance(directed = FALSE) 
+  
+  global_clust <- igraph_obj %>% transitivity(type = "global") 
+  mean_local_clust <- igraph_obj %>% 
+    transitivity(type = "local",
+                 isolates = "zero") %>% 
+    mean()
+  
+  
+  degree_v <- igraph_obj %>% igraph::degree()
+  av_degree <- degree_v %>% mean() 
+  
+  # model Bernoulli Random Graph to check for small world behaviour 
+  brg <- sample_gnm(n = igraph_obj %>% gorder(), 
+                    m = igraph_obj %>% gsize(), 
+                    directed = FALSE,
+                    loops = FALSE)
+  
+  apl_brg <- brg %>% mean_distance(directed = FALSE)
+  mean_clustering_brg <- brg %>% 
+    transitivity(type = "local",
+                 isolates = "zero") %>% 
+    mean()
+  
+  
+  max_degree <- degree_v %>% max() 
+  which(degree_v == max_degree) 
+  
+  min_degree <- degree_v %>% min() 
+  which(degree_v == min_degree) 
+  
+  # betweenness
+  bet <- betweenness(igraph_obj, 
+                     v=V(igraph_obj), 
+                     directed = FALSE)
+  
+  min_bet <- bet %>% min() 
+  bet[which(bet == min_bet)] 
+  
+  max_bet <- bet %>% max()
+  bet[which(bet == max_bet)] 
+  
+  
+  graph_char <- data.frame("metric" = c("av. degree", 
+                                        "density", 
+                                        "av. SPL", 
+                                        "global clust.", 
+                                        "av. local clust.", 
+                                        "av. betw.", 
+                                        "s.d. betw.", 
+                                        "BRG av. SPL", 
+                                        "BRG av. local clust."), 
+                           "values" = c(av_degree, 
+                                        density, 
+                                        apl, 
+                                        global_clust, 
+                                        mean_local_clust, 
+                                        mean(bet), 
+                                        sd(bet),
+                                        apl_brg, 
+                                        mean_clustering_brg)) 
+  colnames(graph_char) <- c("metric", network_name)
+  return(graph_char)
+}
 
-create_ts <- function(df = county_flu_ac_season_norm, county_shape) {
+# Time series functions -------------------------------------
+
+create_ts <- function(df = county_flu_ac_season_norm, county_shape, forMoran=FALSE, asMatrix=TRUE) {
   #need to source preprocessing file first!
   # take normalized flu data frame "df", and county shape object
-  # create overall time series data frame object and convert to matrix
-  assign(
-    paste("flu_norm_ts", sub("_.*","", deparse(substitute(county_shape))), sep="_"),
-    df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <
-                                                                         2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
-                                                                                                                                               "year_week_dt") %>% as.matrix(), envir = .GlobalEnv
-  )
+  # create overall time series data frame object
+  if(forMoran){
+    ts_moran <- df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) 
+  return(ts_moran)
+    }
+  ts_df<- df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
+                                                                                                                                           "year_week_dt") 
+  #convert to matrix
+  if(asMatrix){
+  ts <-as.matrix(ts_df)  
+  return(list(ts_df,ts))}
+  else{
+    return(ts_df)
+  }
+  }
+  
+  
+
+# Moran's I permutation test 
+moran_I_permutation_test <- function(data = county_flu_ac_season_norm,
+                                     g, 
+                                     county_index = NULL, 
+                                     name, 
+                                     time_col = "year_week_dt", 
+                                     cases_col = "conf_flu_norm") {
+  
+  # compute shortest path length for each vertex pair
+  distMatrix <- exp(shortest.paths(g, v=V(g), to=V(g)) * (-1))
+  
+  # if igraph does not have county names for vertices 
+  if (!is.null(county_index)) {
+    # assign names 
+    county_ordering <- match(seq(1, nrow(county_index)), 
+                             county_index$index)
+    county_names <- county_index[county_ordering, ]$GEOID
+    
+    rownames(distMatrix) <- county_names
+    colnames(distMatrix) <- county_names
+  }
+  # assign county names
+  county_distMatrix <- distMatrix %>% rownames()
+  
+  
+  # loop through all dates
+  dates <- data[[time_col]] %>% 
+    unique() %>% 
+    as.character()
+  
+  moran_list <- list()
+  # for each date, compute Moran's I
+  for (date in dates[-1]) {
+    cases_date <- data[data[[time_col]] == date, ]
+    county_df <- cases_date$county_fips
+    ordering <- match(county_distMatrix, county_df)
+    
+    number_cases_date <- cases_date[ordering, ][[cases_col]]
+    
+    morans_I_values <- array(NA, dim = 100)
+    for (r in seq(1, 100)) {
+      set.seed(r)
+      # permutate case numbers 
+      permutate <- sample(seq(1, nrow(county_index)), 
+                          size = nrow(county_index), 
+                          replace = FALSE) 
+      
+      # compute Moran's I for permutated cases 
+      morans_I_values[r] <- ape::Moran.I(number_cases_date[permutate], 
+                                         distMatrix, 
+                                         scaled = FALSE, 
+                                         na.rm = FALSE,
+                                         alternative = "two.sided")$observed
+    }
+    
+    quantile_morans_I <- quantile(morans_I_values, 
+                                  probs = c(0.025, 0.5, 0.975)) %>% 
+      unname()
+    
+    orig_result <- ape::Moran.I(number_cases_date, 
+                                distMatrix, 
+                                scaled = FALSE, 
+                                na.rm = FALSE,
+                                alternative = "two.sided") %>% 
+      rlist::list.cbind()
+    
+    moran_list[[date]] <- cbind(orig_result, 
+                                "lower_ci" = quantile_morans_I[1], 
+                                "upper_ci" = quantile_morans_I[3], 
+                                "median" = quantile_morans_I[2])
+  }
+  
+  
+  moran_df <- moran_list %>% rlist::list.rbind() %>% as.data.frame()
+  moran_df$dates <- dates[-1] %>% as.Date()
+  
+  # p-value 
+  morans_p <- moran_df %>% 
+    mutate(p = ifelse(observed > upper_ci | observed < lower_ci, 1, 0)) %>% 
+    pull(p) %>% 
+    mean()
+  
+  morans_number_outside <- moran_df %>% 
+    mutate(p = ifelse(observed > upper_ci | observed < lower_ci, 1, 0)) %>% 
+    pull(p) %>% 
+    sum()
+  
+  
+  # Visualize and save plot 
+  ggplot(moran_df, 
+         aes(x = dates, 
+             y = observed)) +
+    geom_line() +
+    xlab("Time") +
+    ylab("Moran's I") +
+    geom_line(aes(x = dates, 
+                  y = lower_ci), 
+              linetype = "dashed", color = "#3A3B3C") +
+    geom_line(aes(x = dates, 
+                  y = upper_ci), 
+              linetype = "dashed", color = "#3A3B3C") +
+    geom_line(aes(x = dates, 
+                  y = median), 
+              linetype = "dashed", color = "#3A3B3C") +
+    scale_color_brewer(palette = "Set1") + 
+    theme(legend.position = "None")
+  ggsave(paste0("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Figures/MoransI/Flu/", name, ".pdf", collapse = ""), 
+         width = 27, height = 14, unit = "cm")
+  return(list(p = morans_p, 
+              number = morans_number_outside))
 }
+
+
 
 # GNAR Network object construction ----------------------------------------
 
@@ -427,71 +621,8 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 10),
          )
 }
 
-network_characteristics <- function(igraph_obj, 
-                                    network_name) {
-  
-  density <- igraph_obj %>% edge_density() 
-  apl <- igraph_obj %>%  mean_distance(directed = FALSE) 
-  
-  global_clust <- igraph_obj %>% transitivity(type = "global") 
-  mean_local_clust <- igraph_obj %>% 
-    transitivity(type = "local",
-                 isolates = "zero") %>% 
-    mean()
-  
-  
-  degree_v <- igraph_obj %>% igraph::degree()
-  av_degree <- degree_v %>% mean() 
-  
-  # model Bernoulli Random Graph to check for small world behaviour 
-  brg <- sample_gnm(n = igraph_obj %>% gorder(), 
-                          m = igraph_obj %>% gsize(), 
-                          directed = FALSE,
-                          loops = FALSE)
-  
-  apl_brg <- brg %>% mean_distance(directed = FALSE)
-  mean_clustering_brg <- brg %>% 
-    transitivity(type = "local",
-                 isolates = "zero") %>% 
-    mean()
-  
-  
-  max_degree <- degree_v %>% max() 
-  which(degree_v == max_degree) 
-  
-  min_degree <- degree_v %>% min() 
-  which(degree_v == min_degree) 
-  
-  # betweenness
-  bet <- betweenness(igraph_obj, 
-                     v=V(igraph_obj), 
-                     directed = FALSE)
-  
-  min_bet <- bet %>% min() 
-  bet[which(bet == min_bet)] 
-  
-  max_bet <- bet %>% max()
-  bet[which(bet == max_bet)] 
-  
-  
-  graph_char <- data.frame("metric" = c("av. degree", 
-                                        "density", 
-                                        "av. SPL", 
-                                        "global clust.", 
-                                        "av. local clust.", 
-                                        "av. betw.", 
-                                        "s.d. betw.", 
-                                        "BRG av. SPL", 
-                                        "BRG av. local clust."), 
-                           "values" = c(av_degree, 
-                                        density, 
-                                        apl, 
-                                        global_clust, 
-                                        mean_local_clust, 
-                                        mean(bet), 
-                                        sd(bet),
-                                        apl_brg, 
-                                        mean_clustering_brg)) 
-  colnames(graph_char) <- c("metric", network_name)
-  return(graph_char)
-}
+
+
+# GNAR Model Diagnostics --------------------------------------------------
+
+
