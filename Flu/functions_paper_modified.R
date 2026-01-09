@@ -201,14 +201,21 @@ network_characteristics <- function(igraph_obj,
 
 # Time series functions -------------------------------------
 
-create_ts <- function(df = county_flu_ac_season_norm, county_shape, forMoran=FALSE, asMatrix=TRUE) {
+create_ts <- function(df = county_flu_ac_season_norm, net_type=c("KNN","Mobility"), county_shape=US_county_shape, forMoran=FALSE, asMatrix=TRUE) {
   #need to source preprocessing file first!
   # take normalized flu data frame "df", and county shape object
   # create overall time series data frame object
+  if(net_type=="KNN"){
+    if(!is.null(county_shape)) {
+      ts_df <- df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
+                                                                                                                                                                                                                  "year_week_dt")
+    }
+  }
   if(forMoran){
     ts_moran <- df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) 
   return(ts_moran)
-    }
+  }
+  if(net_type=="Mobility")
   ts_df<- df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
                                                                                                                                            "year_week_dt") 
   #convert to matrix
@@ -219,7 +226,7 @@ create_ts <- function(df = county_flu_ac_season_norm, county_shape, forMoran=FAL
     return(ts_df)
   }
   }
-  
+
   
 
 # Moran's I permutation test 
@@ -382,6 +389,8 @@ if(keep.igraph){
 }
 else return(list(county_index_knn, max_SPL_knn_list, knn_GNAR_list))
 }    
+
+
 
 
 # #GNAR fitting and prediction functions. Modified from Armbruster --------
@@ -625,5 +634,158 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 10),
 
 
 # GNAR Model Diagnostics --------------------------------------------------
+# compute and plot residuals for GNAR model 
+check_and_plot_residuals <- function(model, 
+                                     network_name, 
+                                     alpha, 
+                                     n_ahead, 
+                                     counties = fips_vec, 
+                                     data = covid_cases) {
+  
+  fitted_df <- model %>% residuals() %>% data.frame()
+  colnames(fitted_df) <- colnames(data)
+  
+  N <- nrow(data)
+  # assign time column 
+  fitted_df$time <- rownames(data)[-c(1 : alpha, (N - n_ahead + 1) : N)]
+  
+  fitted_df <- fitted_df %>% gather("CountyName", "residuals", -time)
+  
+  for (county in counties) {
+    # residual QQ plot for selected counties
+    g6 <- ggplot(data = fitted_df %>% 
+                   filter(CountyName == county),
+                 aes(sample = residuals)) +
+      geom_qq() +
+      geom_qq_line() +
+      xlab("theor. quantiles") +
+      ylab("emp. quantiles")
+    ggsave(filename = paste0("Figures/GNAR_entire_dataset/qq_", 
+                             network_name, "_county_",  
+                             county, ".pdf"), 
+           plot = g6, 
+           width = 10, height = 10, unit = "cm")
+  }
+  return(fitted_df)
+}
 
+# compute autocorrelation in residuals for each county 
+autocorrelation <- function(res, 
+                            df_alpha = 5) {
+  
+  results <- matrix(NA, nrow = 26, ncol = 3)
+  i <- 1
+  for (county in res$CountyName %>% unique()) {
+    
+    res_county <- res %>% 
+      filter(CountyName == county)
+    
+    lag <- 1
+    
+    significant <- TRUE
+    while (significant) {
+      BL_test <- Box.test(x = res_county$res, 
+                          type = "Ljung-Box",
+                          lag = df_alpha + lag, 
+                          fitdf = df_alpha)
+      
+      if (df_alpha + lag >= length(res_county$res)) {
+        results[i, ] <- c(county, 
+                          NA, 
+                          NA)
+        
+        break()
+      }
+      
+      if (BL_test$p.value > 0.05) {
+        significant <- FALSE
+        
+        results[i, ] <- c(county, 
+                          df_alpha + lag, 
+                          BL_test$p.value)
+        break()
+      }
+      lag <- lag + 1
+    }
+    i <- i + 1
+  }
+  return(results)
+}
+
+compute_MASE <- function(model, 
+                         network_name, 
+                         n_ahead = 5, 
+                         counties = c("Dublin", 
+                                      "Wicklow", 
+                                      "Kerry", 
+                                      "Donegal"), 
+                         data_df = covid_cases_df) {
+  
+  predicted_df <- predict(model,  
+                          n.ahead = n_ahead) %>% 
+    as.data.frame()
+  
+  colnames(predicted_df) <- colnames(data_df %>% dplyr::select(-time))
+  
+  length_data_df <- nrow(data_df)
+  
+  # start date for the period of prediction 
+  prediction_time <- data_df[1:(length_data_df - n_ahead), ] %>% 
+    rownames() %>% 
+    tail(1)
+  
+  end_date <- data_df[length_data_df, ] %>% 
+    rownames()
+  
+  predicted_df$time <- seq(as.Date(prediction_time) + 7, 
+                           as.Date(end_date), 
+                           by = 7)
+  
+  # compare true 1-lag COVID-19 ID and predicted values 
+  true <- data_df[(length_data_df - n_ahead + 1):length_data_df, ] %>% 
+    gather(key = "CountyName",
+           value = "true", 
+           -time)
+  pred <- predicted_df %>% 
+    gather(key = "CountyName",
+           value = "predicted", 
+           -time)
+  # create data frame to assess predictive performance 
+  check_predictions_df <- left_join(true, pred, 
+                                    by = c("CountyName", "time")) %>% 
+    mutate(res = true - predicted)
+  
+  mase_df <- data.frame("time" = as.Date(NA), 
+                        "CountyName" = NA, 
+                        "true" = NA, 
+                        "predicted" = NA, 
+                        "res" = NA, 
+                        "mase" = NA, 
+                        "type" = NA)
+  
+  for (county in counties) {
+    check_predictions_county <- check_predictions_df %>% 
+      filter(CountyName == county) 
+    
+    check_predictions_county$mase <- 0
+    
+    # compute denominator for MASE
+    denominator <- diff(check_predictions_county$true, lag = 1) %>% 
+      abs() %>% 
+      mean()
+    
+    for (i in seq(1, nrow(check_predictions_county))) {
+      # compute MASE values 
+      check_predictions_county[i, ]$mase <- abs(check_predictions_county[i, ]$res) / denominator
+    }
+    
+    check_predictions_county$type <- network_name
+    
+    mase_df <- rbind.data.frame(mase_df, 
+                                check_predictions_county)
+    
+  }
+  
+  return(mase_df %>% na.omit())
+}
 

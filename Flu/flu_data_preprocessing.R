@@ -86,3 +86,9 @@ cent_coord <- US_county_shape%>% subset(.,GEOID %in% include_fips) %>%
   st_centroid() %>%
   st_coordinates()
 names(cent_coord) <- US_county_shape$GEOID
+
+
+
+# Mobility data processing ------------------------------------------------
+
+
