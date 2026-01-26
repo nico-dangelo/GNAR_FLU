@@ -5,6 +5,7 @@ library(tidyverse)
 library(spdep)
 library(sf)
 library(sp)
+library(data.table)
 # Read data ---------------------------------------------------------------
 county_week_flu_v3_imputed <- readr::read_csv("Data/Flu/county_week_flu_v3_imputed.csv")
 
@@ -90,5 +91,19 @@ names(cent_coord) <- US_county_shape$GEOID
 
 
 # Mobility data processing ------------------------------------------------
-
-
+#import data
+mobility_df <- fread("Data/Mobility/social_distancing_county_network_unnorm_edgelist_daily_2019.csv", select=c("date","origin_county_fips", "destination_county_fips")) 
+# Map mobility dates back to ISO year-week for compatibility with flu dates
+library(ISOweek)
+library(polars)
+#use polars to create year_week strings
+dates <- pl$DataFrame(date=social_distancing_county_network_unnorm_edgelist_daily_2019_NEng$date
+)$
+  with_columns(date_string=pl$col("date")$dt$strftime("%G-%V"))
+# convert to year_week_dt with ISO monday matching flu data format
+dates<- dates$with_columns(year_week_dt=(pl$col("date_string")+"-1")$str$to_date(format="%G-%V-%u"))
+# match dates between mobility and flu data
+mobility_dates <- data.table::as.data.table(dates)
+# county_week_flu_v3_imputed_clean[county_week_flu_v3_imputed_clean$year_week=="2019-01",c("year_week","year_week_dt")]
+mobility_2019_NEng<- social_distancing_county_network_unnorm_edgelist_daily_2019_NEng[mobility_dates$year_week_dt%in%county_flu_ac_season_norm$year_week_dt]
+county_flu_ac_season_norm_mobility_2019_NEng<- as.data.table(county_flu_ac_season_norm)[county_flu_ac_season_norm$year_week_dt %in%mobility_dates$year_week_dt]
