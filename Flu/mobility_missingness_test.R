@@ -23,7 +23,7 @@ NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_
 mobility_df_list |> lapply(function(Z){setkey(mobility_county_fips_index, index) 
 Z[, origin:=mobility_county_fips_index[.(origin), GEO_ID]]
 Z[, destination:= mobility_county_fips_index[.(destination), GEO_ID]]})
-
+# saveRDS(mobility_df_list, file = "~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list.rds")
 # Create igraphs for mobility networks and find the largest ---------------
 mobility_igraph_list <- mobility_df_list |> lapply(function(A){A|> select(origin, destination)|> filter(origin %in% county_flu_ac_season_norm$county_fips, destination %in% county_flu_ac_season_norm$county_fips) |> graph_from_data_frame()})
 #nodes
@@ -53,8 +53,20 @@ mobility_igraph_list_NEng |> lapply(gorder) |> unlist()
 mobility_igraph_list_NEng |> lapply(gsize) |> unlist() |> which.max()
 mobility_GNAR_NEng<- mobility_igraph_list_NEng[[11]] |> simplify() |> igraphtoGNAR()
 flu_ts_NEng <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_NEng[[11]])$name, year(year_week_dt)>=2019 & year(year_week_dt)<2021)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") |> as.matrix()
-flu_mobility_GNAR_NEng_fit <- GNARfit(vts=flu_ts_NEng, net=mobility_GNAR_NEng)
+flu_mobility_GNAR_NEng_fit <- fit_and_predict_for_many(net=mobility_GNAR_NEng, upper_limit = diameter(mobility_igraph_list_NEng[[11]]), old=T, vts = flu_ts_NEng)
 summary(flu_mobility_GNAR_NEng_fit)
+
+
+
+
+
+
+
+
+
+
+
+
 # Old, unused -------------------------------------------------------------
 # import mobility data ----------------------------------------------------
 # Ony using edgelist to define networks until memory solution found
