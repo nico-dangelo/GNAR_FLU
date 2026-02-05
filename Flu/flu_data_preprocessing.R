@@ -66,6 +66,8 @@ county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_sea
 
 county_flu_ac_season_norm <- county_flu_ac_season_merged %>% mutate(conf_flu_norm = conf_flu_adj /
                                                                       season_all_cause_wtd)
+# saveRDS(county_flu_ac_season_norm, "~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Flu/county_flu_ac_season_norm.RDS")
+rm(county_flu_ac_season, county_flu_ac_season_merged, county_season_ac_v3_imputed, county_week_ac_norm, county_week_ac_v3_imputed, county_week_ac_v3_imputed_year,county_week_flu_ac_merged, county_week_flu_ac_merged, county_week_flu_ac_merged_adj, county_week_flu_v3_imputed, county_week_flu_v3_imputed_clean, county_year_ac_mean)
 # Import and Process Shapefile --------------------------------------------
 
 # County-level shapefile 

@@ -207,7 +207,7 @@ create_ts <- function(flu_df = county_flu_ac_season_norm, net_type=c("KNN","Mobi
   # create overall time series data frame object
   if(net_type=="KNN"){
     if(!is.null(county_shape)) {
-      ts_df <- df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
+      ts_df <- flu_df %>% select(county_fips, year_week_dt, conf_flu_norm) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var =
                                                                                                                                                                                                                   "year_week_dt")
     }
   }
@@ -216,7 +216,7 @@ create_ts <- function(flu_df = county_flu_ac_season_norm, net_type=c("KNN","Mobi
   return(ts_moran)
   }
   if(net_type=="Mobility")
-  ts_df<- flu_df %>% select(county_fips, year_week, conf_flu_norm) %>% filter(year(year_week) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var ="year_week_dt") 
+  ts_df<- flu_df %>% select(county_fips, year_week_dt, conf_flu_norm, destination_county_fips) %>% filter(year(year_week_dt) <2020 & county_fips %in% county_shape$GEOID) %>% spread(county_fips, conf_flu_norm) %>% column_to_rownames(var ="year_week_dt") 
   #convert to matrix
   if(asMatrix){
   ts <-as.matrix(ts_df)  
