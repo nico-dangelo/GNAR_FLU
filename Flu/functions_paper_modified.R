@@ -472,7 +472,7 @@ fit_and_predict <- function(alpha, beta,
     return(data.frame(
     "RSS" = model$mod$residuals^2 %>% sum(), 
                       "LogLik" = logLik(model),
-                      "BIC" = BIC(model)))
+                      "BIC" = ifelse(logLik(model)==0,NA, BIC(model))))
   } 
   if (return_model) {
     # return model 
@@ -482,7 +482,7 @@ fit_and_predict <- function(alpha, beta,
 
 
 fit_and_predict_for_many <- function(alpha_options = seq(1, 10), 
-                                     beta_options = list(0,1, 2, 3, 
+                                     beta_options = list(1, 2, 3, 
                                                          4, 5,
                                                          c(1, 1), 
                                                          c(2, 1), 
@@ -595,7 +595,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 10),
   #   
   #   model_options_valid <- model_options_valid[only_1, ]
   # }
-  
+  print(model_options_valid)
   BIC_RSS <- data.frame()
   
   for (i in seq(1, nrow(model_options_valid))) {

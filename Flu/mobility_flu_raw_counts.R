@@ -25,4 +25,7 @@ mobility_GNAR <- mobility_igraph_list[[10]] |> simplify() |> igraphtoGNAR()
 flu_count_ts <- flu_data |> filter(county_fips %in% V(mobility_igraph_list[[10]])$name, year(year_week_dt)>=2019 & year(year_week_dt)<2021)|> spread(county_fips, conf_flu) |> column_to_rownames(var="year_week_dt") |> as.matrix()
 # fit unweighted GNAR objects to flu count Time Series --------------------------
 # flu_mobility_GNAR_fit <- fit_and_predict_for_many(net=mobility_GNAR, upper_limit = diameter(mobility_igraph_list[[10]]), old=T, vts = flu_count_ts)
-GNARdesign(vts=flu_count_ts, net=mobility_GNAR)
+# GNARdesign(vts=flu_count_ts, net=mobility_GNAR)
+# exponentiate?
+flu_count_exp_ts <- exp(flu_count_ts)
+GNARfit(vts=flu_count_exp_ts, net=mobility_GNAR) |> summary()

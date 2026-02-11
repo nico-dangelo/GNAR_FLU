@@ -20,7 +20,7 @@ mobility_county_fips_index <- fread("Data/Mobility/US-Connectivity-Metapop-main/
     GEO_ID = str_pad(GEO_ID, 5, pad="0"))
 NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_shape = US_county_shape) 
 #Match origin and destination to index GEO_IDs
-mobility_df_list |> lapply(function(Z){setkey(mobility_county_fips_index, index) 
+mobility_df_list <-  mobility_df_list |> lapply(function(Z){setkey(mobility_county_fips_index, index) 
 Z[, origin:=mobility_county_fips_index[.(origin), GEO_ID]]
 Z[, destination:= mobility_county_fips_index[.(destination), GEO_ID]]})
 # saveRDS(mobility_df_list, file = "~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list.rds")
@@ -72,7 +72,35 @@ flu_ts_df_diff <- county_flu_ac_season_norm_diff  |> select(county_fips, year_we
 flu_ts_diff <- as.matrix(flu_ts_df_diff)
 flu_diff_mobility_GNAR_fit <- fit_and_predict_for_many(net = mobility_GNAR, vts=flu_ts_diff)
 
-flu_ts_NEng_df_diff<- 
+flu_ts_NEng_df_diff<- county_flu_ac_season_norm_diff |> select(county_fips, year_week_dt, conf_flu_norm_Diff) |> filter(county_fips %in% V(mobility_igraph_list_NEng[[11]])$name) |> spread(county_fips, conf_flu_norm_Diff) |> column_to_rownames(var="year_week_dt")
+flu_ts_diff_NEng <- as.matrix(flu_ts_NEng_df_diff)
+#try log1p transform
+# log1p(flu_ts_diff_NEng)
+flu_diff_mobility_NEng_GNAR_fit <- GNARfit(vts=flu_ts_diff_NEng, net=mobility_GNAR_NEng)
+summary(flu_mobility_GNAR_NEng_fit)
+flu_diff_log1p_mobility_NEng_GNAR_fit <- GNARfit(vts=log1p(flu_ts_diff_NEng), net=mobility_GNAR_NEng)
+summary(flu_diff_log1p_mobility_NEng_GNAR_fit)
+#Try checking for linear dependence
+#compute variance-covariance matrix of residuals
+flu_diff_log1p_mobility_NEng_var_covar <- 1/flu_diff_log1p_mobility_NEng_GNAR_fit$frbic$time.in * t(residToMat(flu_diff_log1p_mobility_NEng_GNAR_fit, nnodes=flu_diff_log1p_mobility_NEng_GNAR_fit$frbic$nnodes)$resid) %*% residToMat(flu_diff_log1p_mobility_NEng_GNAR_fit, nnodes=flu_diff_log1p_mobility_NEng_GNAR_fit$frbic$nnodes)$resid
+is.singular.matrix(flu_diff_log1p_mobility_NEng_var_covar)
+#Singular
+find_linear_dependent_columns(flu_diff_log1p_mobility_NEng_var_covar, tol = 1e-50)
+#No dependent columns???
+#compute rank of var-covar residual matrix
+matrixcalc::matrix.rank(flu_diff_log1p_mobility_NEng_var_covar)
+matrixcalc::matrix.rank(flu_diff_log1p_mobility_NEng_var_covar, method="chol")
+matrixcalc::matrix.inverse(flu_diff_log1p_mobility_NEng_var_covar)
+#check determinant
+det(flu_diff_log1p_mobility_NEng_var_covar)
+solve(flu_diff_log1p_mobility_NEng_var_covar)
+Matrix::det(flu_diff_log1p_mobility_NEng_var_covar)
+Matrix::determinant(flu_diff_log1p_mobility_NEng_var_covar)
+#condition and reciprocal condition number
+Matrix::rcond(flu_diff_log1p_mobility_NEng_var_covar)
+1/Matrix::condest(flu_diff_log1p_mobility_NEng_var_covar)$est
+#Full rank???
+qr(flu_diff_log1p_mobility_NEng_var_covar)$rank
 # Try with undirected mobility network ------------------------------------
 mobility_igraph_undir_list <- mobility_igraph_list|> lapply(function(X){as_undirected(X,mode = "collapse")})
 mobility_igraph_undir_list |> lapply(gorder) |> unlist()
@@ -115,7 +143,20 @@ mobility_igraph_list_CA <- mobility_df_list_CA |> lapply(graph_from_data_frame)
 mobility_igraph_list_CA |> lapply(gorder) |> unlist()
 mobility_igraph_list_CA |> lapply(gsize) |> unlist() |> which.min()
 mobility_igraph_list_CA |> lapply(gsize) |> unlist() |> which.max()
-flu_ts_df_CA <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_CA[[9]])$name, year(year_week_dt)>=2019 & year(year_week_dt)<2021)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+flu_ts_df_CA <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_CA[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+flu_ts_CA <- as.matrix(flu_ts_df_CA)
+mobility_dir_max_CA_GNAR <- mobility_igraph_list_CA[[9]] |> igraph::simplify() |> igraphtoGNAR()
+corbit_plot(vts=flu_ts_CA, net=mobility_dir_max_CA_GNAR, max_lag = 10, max_stage = diameter(mobility_igraph_list_CA[[9]]), rectangular_plot = "square")
+mobility_dir_max_CA_GNAR_fit <- fit_and_predict(alpha = 5, beta = c(2,2,2,2,2), vts=flu_ts_CA, net=mobility_dir_max_CA_GNAR, forecast_window = 5, globalalpha = T)
+# mobility_dir_max_CA_GNAR_fit <- GNARfit(vts=flu_ts_CA, net = mobility_dir_max_CA_GNAR)
+summary(mobility_dir_max_CA_GNAR_fit)
+# find dependent design matrix columns to diagnose singularity
+# fullRankMatrix::find_linear_dependent_columns(GNARdesign(mobility_dir_max_CA_GNAR, vts=flu_ts_CA, alphaOrder = 10, betaOrder = c(1,1,1,1,1,1,1,1,1,1)))
+# MA, RI, CT submodel -----------------------------------------------------
+
+MA_RI_CT_counties <- make_fips_vec(c("MA","RI","CT"), US_county_shape = US_county_shape)
+mobility_df_list_MA_RI_CT <- mobility_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% MA_RI_CT_counties, destination %in% MA_RI_CT_counties)})
+mobility_igraph_list_MA_RI_CT <- mobility_df_list_MA_RI_CT |> lapply(graph_from_data_frame)
 
 # Old, unused -------------------------------------------------------------
 # import mobility data ----------------------------------------------------
