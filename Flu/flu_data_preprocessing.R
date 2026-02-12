@@ -15,7 +15,6 @@ county_week_flu_v3_imputed_clean$year_week_dt <- as_date(county_week_flu_v3_impu
                                                            "%G-%V-%u")
 # # Normalization -----------------------------------------------------------
 # #Import all cause mortality data
-#
 county_week_ac_v3_imputed <- readr::read_csv("Data/Flu/county_week_ac_v3_imputed.csv")
 
 # Normalize flu data by ac

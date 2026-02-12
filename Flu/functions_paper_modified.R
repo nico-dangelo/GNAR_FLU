@@ -397,9 +397,9 @@ else return(list(county_index_knn, max_SPL_knn_list, knn_GNAR_list))
 
     
 fit_and_predict <- function(alpha, beta, 
-                            globalalpha, 
+                            globalalpha=TRUE, 
                             net,
-                            vts = covid_cases, 
+                            vts, 
                            
                             
                             # if not NULL, coefficients are computed for 
@@ -469,10 +469,11 @@ fit_and_predict <- function(alpha, beta,
   
   if (!return_model) {
     # return data frame with RSS, log likelihood, and BIC value for model 
+    ifelse(logLik(model)!=0,
     return(data.frame(
     "RSS" = model$mod$residuals^2 %>% sum(), 
                       "LogLik" = logLik(model),
-                      "BIC" = ifelse(logLik(model)==0,NA, BIC(model))))
+                      "BIC" = BIC(model))), break)
   } 
   if (return_model) {
     # return model 
@@ -481,7 +482,7 @@ fit_and_predict <- function(alpha, beta,
 }
 
 
-fit_and_predict_for_many <- function(alpha_options = seq(1, 10), 
+fit_and_predict_for_many <- function(alpha_options = seq(1, 5), 
                                      beta_options = list(1, 2, 3, 
                                                          4, 5,
                                                          c(1, 1), 
@@ -638,8 +639,8 @@ check_and_plot_residuals <- function(model,
                                      network_name, 
                                      alpha, 
                                      n_ahead, 
-                                     counties = fips_vec, 
-                                     data = covid_cases) {
+                                     counties, 
+                                     data) {
   
   fitted_df <- model %>% residuals() %>% data.frame()
   colnames(fitted_df) <- colnames(data)
@@ -659,7 +660,7 @@ check_and_plot_residuals <- function(model,
       geom_qq_line() +
       xlab("theor. quantiles") +
       ylab("emp. quantiles")
-    ggsave(filename = paste0("Figures/GNAR_entire_dataset/qq_", 
+    ggsave(filename = paste0("Figures/qq_", 
                              network_name, "_county_",  
                              county, ".pdf"), 
            plot = g6, 
@@ -672,7 +673,7 @@ check_and_plot_residuals <- function(model,
 autocorrelation <- function(res, 
                             df_alpha = 5) {
   
-  results <- matrix(NA, nrow = 26, ncol = 3)
+  results <- matrix(NA, nrow = nrow(res), ncol = ncol(res))
   i <- 1
   for (county in res$CountyName %>% unique()) {
     
@@ -714,11 +715,8 @@ autocorrelation <- function(res,
 compute_MASE <- function(model, 
                          network_name, 
                          n_ahead = 5, 
-                         counties = c("Dublin", 
-                                      "Wicklow", 
-                                      "Kerry", 
-                                      "Donegal"), 
-                         data_df = covid_cases_df) {
+                         counties, 
+                         data_df) {
   
   predicted_df <- predict(model,  
                           n.ahead = n_ahead) %>% 

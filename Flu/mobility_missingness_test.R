@@ -24,8 +24,18 @@ mobility_df_list <-  mobility_df_list |> lapply(function(Z){setkey(mobility_coun
 Z[, origin:=mobility_county_fips_index[.(origin), GEO_ID]]
 Z[, destination:= mobility_county_fips_index[.(destination), GEO_ID]]})
 # saveRDS(mobility_df_list, file = "~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list.rds")
+# Population data processing ----------------------------------------------
+county_pop_2024 <- read_csv("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_population_with_fips.csv")
+#drop counties with fewer than 10,000 in 2020-2024
+county_pop_10k_limited <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS)
+# drop counties with fewer than 100,000 in 2020-2024
+county_pop_100k_limited <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>100000)) |> select(FIPS)
+
+#restrict flu data by county size
+county_flu_ac_season_norm_10k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_10k_limited$FIPS)
+county_flu_ac_season_norm_100k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_100k_limited$FIPS)
 # Create igraphs for mobility networks and find the largest ---------------
-mobility_igraph_list <- mobility_df_list |> lapply(function(A){A|> select(origin, destination)|> filter(origin %in% county_flu_ac_season_norm$county_fips, destination %in% county_flu_ac_season_norm$county_fips) |> graph_from_data_frame()|> simplify()})
+mobility_igraph_list <- mobility_df_list |> lapply(function(A){A|> select(origin, destination)|> filter(origin %in% county_flu_ac_season_norm$county_fips, destination %in% county_flu_ac_season_norm$county_fips) |> graph_from_data_frame()|> igraph::simplify()})
 #nodes
 mobility_igraph_list|> lapply(gorder) |> unlist() 
 #edges
@@ -33,11 +43,32 @@ mobility_igraph_list|> lapply(gsize) |> unlist() |> which.max()
 # Create GNAR objects without mobility weighting --------------------------
 mobility_GNAR <- mobility_igraph_list[[10]] |> simplify() |> igraphtoGNAR()
 # matched_counties <- V(mobility_igraph_list[[10]])$name
+#population-limited mobility data
+
+mobility_df_list_10k <- mobility_df_list |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% county_flu_ac_season_norm_10k$county_fips, destination %in% county_flu_ac_season_norm_10k$county_fips)})
+mobility_df_list_100k <- mobility_df_list |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% county_flu_ac_season_norm_100k$county_fips, destination %in% county_flu_ac_season_norm_100k$county_fips)})
+
+mobility_igraph_list_10k <- mobility_df_list_10k |> lapply(function(A){A|> select(origin, destination) |> graph_from_data_frame()|> igraph::simplify()})
+
+mobility_igraph_list_100k <- mobility_df_list_100k |> lapply(function(A){A|> select(origin, destination) |> graph_from_data_frame()|> igraph::simplify()})
+
+mobility_igraph_list_10k |> lapply(gsize) |> unlist() |> which.max()
+mobility_igraph_list_10k |> lapply(gsize) |> unlist() |> which.min()
+mobility_igraph_list_100k |> lapply(gsize) |> unlist() |> which.max()
+mobility_igraph_list_100k |> lapply(gsize) |> unlist() |> which.min()
+
+mobility_10k_GNAR <- mobility_igraph_list_10k[[10]] |> igraph::simplify() |> igraphtoGNAR()
+mobility_100k_GNAR <- mobility_igraph_list_100k[[5]] |> igraph::simplify() |> igraphtoGNAR()
+
 # Create flu ts for GNAR with mobility edges ------------------------------
 flu_ts_df<- county_flu_ac_season_norm |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list[[10]])$name, year(year_week_dt)>=2019 & year(year_week_dt)<2021)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 flu_ts <- flu_ts_df |> as.matrix()
 
-
+#population-limited 
+flu_ts_df_10k <- county_flu_ac_season_norm_10k |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_10k[[10]])$name, year(year_week_dt)>=2019) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
+flu_ts_10k <- as.matrix(flu_ts_df_10k)
+flu_ts_df_100k <- county_flu_ac_season_norm_100k |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_100k[[5]])$name, year(year_week_dt)>=2019) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
+flu_ts_100k <- as.matrix(flu_ts_df_100k)
 # Diagnostics on Flu TS ---------------------------------------------------
 Ljung_Box_res <- apply(flu_ts, 2, function(X){Box.test(X, type="Ljung-Box")})
 adf_res <- apply(flu_ts,2,function(Y){tseries::adf.test(Y)})
@@ -45,7 +76,16 @@ adf_res <- apply(flu_ts,2,function(Y){tseries::adf.test(Y)})
 # fit unweighted GNAR objects to flu Time Series --------------------------
 flu_mobility_GNAR_fit <- fit_and_predict_for_many(net=mobility_GNAR, upper_limit = diameter(mobility_igraph_list[[10]]), old=T, vts = flu_ts)
 
+# population-limited fits
+flu_mobility_10k_GNAR_fit <- GNARfit(vts=flu_ts_10k, net=mobility_10k_GNAR)
+summary(flu_mobility_10k_GNAR_fit)
 
+flu_mobility_100k_GNAR_fit <- GNARfit(vts=flu_ts_100k, net=mobility_100k_GNAR)
+summary(flu_mobility_100k_GNAR_fit)
+GNAR::cross_correlation_plot(2, vts=flu_ts_100k)
+GNAR::active_node_plot(vts=flu_ts_100k, network = mobility_100k_GNAR, max_lag=2, r_stages = c(1,1))
+GNAR::local_relevance_plot(network = mobility_100k_GNAR, r_star = 1)
+GNAR::node_relevance_plot(network = mobility_100k_GNAR, r_star=1, node_names=V(mobility_igraph_list_100k[[5]])$name)
 # NEng subset -------------------------------------------------------------
 
 mobility_df_list_NEng<- mobility_df_list|> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties)})
@@ -55,10 +95,9 @@ mobility_igraph_list_NEng |> lapply(gsize) |> unlist() |> which.max()
 mobility_GNAR_NEng<- mobility_igraph_list_NEng[[11]] |> igraph::simplify() |> igraphtoGNAR()
 flu_ts_df_NEng <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_NEng[[11]])$name, year(year_week_dt)>=2019 )|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 flu_ts_NEng<- flu_ts_df_NEng |> as.matrix()
-# flu_mobility_GNAR_NEng_fit <- fit_and_predict_for_many(net=mobility_GNAR_NEng, upper_limit = diameter(mobility_igraph_list_NEng[[11]]), old=T, vts = flu_ts_NEng)
+flu_mobility_GNAR_NEng_fit_many <- fit_and_predict_for_many(net=mobility_GNAR_NEng, upper_limit = diameter(mobility_igraph_list_NEng[[11]]), old=T, vts = flu_ts_NEng)
 flu_mobility_GNAR_NEng_fit <- GNARfit(net = mobility_GNAR_NEng, vts=flu_ts_NEng)
 summary(flu_mobility_GNAR_NEng_fit)
-
 
 
 
@@ -129,7 +168,7 @@ flu_ts_MA <- as.matrix(flu_ts_df_MA)
 corbit_plot(vts=flu_ts_MA, net=mobility_dir_min_MA_GNAR, max_lag = 10, max_stage = diameter(mobility_igraph_list_MA[[7]]), rectangular_plot = "square")
 
 # mobility_dir_min_MA_GNAR_fit <- GNARfit(vts=flu_ts_MA, net=mobility_dir_min_MA_GNAR)
-mobility_dir_min_MA_GNAR_fit <- fit_and_predict_for_many(alpha_options = c(1,6), vts=flu_ts_MA, net=mobility_dir_min_MA_GNAR, upper_limit = 2)
+mobility_dir_min_MA_GNAR_fit <- fit_and_predict_for_many(alpha_options = seq(1,6), vts=flu_ts_MA, net=mobility_dir_min_MA_GNAR, upper_limit = 2)
 summary(mobility_dir_min_MA_GNAR_fit)
 
 # mobility_igraph_list_MA |> lapply(is.directed) |> unlist()
@@ -157,7 +196,20 @@ summary(mobility_dir_max_CA_GNAR_fit)
 MA_RI_CT_counties <- make_fips_vec(c("MA","RI","CT"), US_county_shape = US_county_shape)
 mobility_df_list_MA_RI_CT <- mobility_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% MA_RI_CT_counties, destination %in% MA_RI_CT_counties)})
 mobility_igraph_list_MA_RI_CT <- mobility_df_list_MA_RI_CT |> lapply(graph_from_data_frame)
-
+mobility_igraph_list_MA_RI_CT |> lapply(gorder) |> unlist()
+mobility_igraph_list_MA_RI_CT |> lapply(gsize) |> unlist() |> which.max()
+flu_ts_df_MA_RI_CT <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+flu_ts_MA_RI_CT <- as.matrix(flu_ts_df_MA_RI_CT)
+mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR() 
+mobility_max_MA_RI_CT_GNAR_fit <- GNARfit(vts=flu_ts_MA_RI_CT, net = mobility_max_MA_RI_CT_GNAR)
+summary(mobility_max_MA_RI_CT_GNAR_fit)
+corbit_plot(vts=flu_ts_MA_RI_CT, net=mobility_max_MA_RI_CT_GNAR, max_lag = 10, max_stage = diameter(mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify()), rectangular_plot = "square")
+mobility_max_MA_RI_CT_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net = mobility_max_MA_RI_CT_GNAR, upper_limit = diameter(mobility_igraph_list_MA_RI_CT[[11]]), vts=flu_ts_MA_RI_CT )
+return_best_model(mobility_max_MA_RI_CT_GNAR_fit_many)
+mobility_max_MA_RI_CT_GNAR_fit_many[27,"name"]
+mobility_max_MA_RI_CT_GNAR_fit_best <- fit_and_predict(alpha=10, globalalpha = T, beta=c(1,1,1,0,0,0,0,0,0,0), vts=flu_ts_MA_RI_CT , net=mobility_max_MA_RI_CT_GNAR, return_model = T, old=T, forecast_window = 5)
+residuals_mobility_max_MA_RI_CT_GNAR_fit_best<-  check_and_plot_residuals(model = mobility_max_MA_RI_CT_GNAR_fit_best, data = flu_ts_MA_RI_CT, network_name = mobility_max_MA_RI_CT_GNAR_fit_many[27,"name"], alpha = 10, n_ahead = 5, counties = MA_RI_CT_counties)
+autocorrelation(res=residuals_mobility_max_MA_RI_CT_GNAR_fit_best, df_alpha=10)
 # Old, unused -------------------------------------------------------------
 # import mobility data ----------------------------------------------------
 # Ony using edgelist to define networks until memory solution found
