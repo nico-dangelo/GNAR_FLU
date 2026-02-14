@@ -18,7 +18,6 @@ mobility_df_list <- list.files("~/Library/CloudStorage/GoogleDrive-nd672@georget
 mobility_county_fips_index <- fread("Data/Mobility/US-Connectivity-Metapop-main/data/counties_fips_index.csv") |> 
   mutate(
     GEO_ID = str_pad(GEO_ID, 5, pad="0"))
-NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_shape = US_county_shape) 
 #Match origin and destination to index GEO_IDs
 mobility_df_list <-  mobility_df_list |> lapply(function(Z){setkey(mobility_county_fips_index, index) 
 Z[, origin:=mobility_county_fips_index[.(origin), GEO_ID]]
@@ -87,13 +86,14 @@ GNAR::active_node_plot(vts=flu_ts_100k, network = mobility_100k_GNAR, max_lag=2,
 GNAR::local_relevance_plot(network = mobility_100k_GNAR, r_star = 1)
 GNAR::node_relevance_plot(network = mobility_100k_GNAR, r_star=1, node_names=V(mobility_igraph_list_100k[[5]])$name)
 # NEng subset -------------------------------------------------------------
-
-mobility_df_list_NEng<- mobility_df_list|> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties)})
+#now with 10k restriction
+NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_shape = US_county_shape)
+mobility_df_list_NEng<- mobility_df_list_10k|> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties)})
 mobility_igraph_list_NEng <- mobility_df_list_NEng |> lapply(graph_from_data_frame)
 mobility_igraph_list_NEng |> lapply(gorder) |> unlist() 
 mobility_igraph_list_NEng |> lapply(gsize) |> unlist() |> which.max()
 mobility_GNAR_NEng<- mobility_igraph_list_NEng[[11]] |> igraph::simplify() |> igraphtoGNAR()
-flu_ts_df_NEng <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_NEng[[11]])$name, year(year_week_dt)>=2019 )|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+flu_ts_df_NEng <- county_flu_ac_season_norm_10k |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_NEng[[11]])$name, year(year_week_dt)>=2019 )|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 flu_ts_NEng<- flu_ts_df_NEng |> as.matrix()
 flu_mobility_GNAR_NEng_fit_many <- fit_and_predict_for_many(net=mobility_GNAR_NEng, upper_limit = diameter(mobility_igraph_list_NEng[[11]]), old=T, vts = flu_ts_NEng)
 flu_mobility_GNAR_NEng_fit <- GNARfit(net = mobility_GNAR_NEng, vts=flu_ts_NEng)
