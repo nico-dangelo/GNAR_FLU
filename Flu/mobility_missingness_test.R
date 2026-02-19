@@ -210,6 +210,63 @@ mobility_max_MA_RI_CT_GNAR_fit_many[27,"name"]
 mobility_max_MA_RI_CT_GNAR_fit_best <- fit_and_predict(alpha=10, globalalpha = T, beta=c(1,1,1,0,0,0,0,0,0,0), vts=flu_ts_MA_RI_CT , net=mobility_max_MA_RI_CT_GNAR, return_model = T, old=T, forecast_window = 5)
 residuals_mobility_max_MA_RI_CT_GNAR_fit_best<-  check_and_plot_residuals(model = mobility_max_MA_RI_CT_GNAR_fit_best, data = flu_ts_MA_RI_CT, network_name = mobility_max_MA_RI_CT_GNAR_fit_many[27,"name"], alpha = 10, n_ahead = 5, counties = MA_RI_CT_counties)
 autocorrelation(res=residuals_mobility_max_MA_RI_CT_GNAR_fit_best, df_alpha=10)
+# moran_I_permutation_test(data=flu_ts_MA_RI_CT, g=mobility_igraph_list_MA_RI_CT[[11]], name="mobility MA_RI_CT best") 
+flu_ts_df_MA_RI_CT_MASE <- flu_ts_df_MA_RI_CT |>  mutate(time=rownames(flu_ts_df_MA_RI_CT) |> as.Date())
+MASE_mobility_max_MA_RI_CT_GNAR_fit_best <- compute_MASE(model=mobility_max_MA_RI_CT_GNAR_fit_best, network_name="mobility_max_MA_RI_CT", counties = MA_RI_CT_counties, data_df = flu_ts_df_MA_RI_CT_MASE)
+
+ggplot(MASE_mobility_max_MA_RI_CT_GNAR_fit_best, 
+              aes(x = time, 
+                  y = mase, 
+                  color = type)) +
+    geom_point() +
+    geom_line(linetype = "dashed") +
+    xlab("Time") + 
+    ylab("MASE") +
+    facet_grid(~ CountyName) +
+    theme(legend.position = "bottom", 
+          axis.text.x = element_text(angle = 90, 
+                                     vjust = 0.5, 
+                                     hjust=1))
+    # scale_color_manual(values = color_types,
+    #                    labels = label_networks, 
+    #                    name = "Network")
+  ggsave(filename = paste0("Figures/GNAR_pandemic_phases/mase_", 
+                           type_name,
+                           "_", 
+                           mase_name, 
+                           "_", 
+                           number_counties,
+                           ".pdf", 
+                           collapse = ""), 
+         plot = g,
+         width = 30, height = 13, units = "cm")ggplot(MASE_mobility_max_MA_RI_CT_GNAR_fit_best, 
+       aes(x = time, 
+           y = mase, 
+           color = type)) +
+  geom_point() +
+  geom_line(linetype = "dashed") +
+  xlab("Time") + 
+  ylab("MASE") +
+  facet_grid(~ CountyName) +
+  theme(legend.position = "bottom", 
+        axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1)) +
+  # scale_color_manual(values = color_types,
+  #                    labels = label_networks, 
+  #                    name = "Network")
+ggsave(filename = paste0("Figures/GNAR_pandemic_phases/mase_", 
+                         type_name,
+                         "_", 
+                         mase_name, 
+                         "_", 
+                         number_counties,
+                         ".pdf", 
+                         collapse = ""), 
+       plot = g,
+       width = 30, height = 13, units = "cm")
+
+
 # Old, unused -------------------------------------------------------------
 # import mobility data ----------------------------------------------------
 # Ony using edgelist to define networks until memory solution found
