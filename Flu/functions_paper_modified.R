@@ -634,6 +634,11 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
 
 
 # GNAR Model Diagnostics --------------------------------------------------
+return_best_model <- function(results_list) {
+  return(results_list[which.min(results_list$BIC), c(1, 3)])
+}
+
+
 # compute and plot residuals for GNAR model 
 check_and_plot_residuals <- function(model, 
                                      network_name, 
@@ -660,7 +665,7 @@ check_and_plot_residuals <- function(model,
       geom_qq_line() +
       xlab("theor. quantiles") +
       ylab("emp. quantiles")
-    ggsave(filename = paste0("Figures/qq_", 
+    ggsave(filename = paste0("Figures/qq/qq_", 
                              network_name, "_county_",  
                              county, ".pdf"), 
            plot = g6, 
