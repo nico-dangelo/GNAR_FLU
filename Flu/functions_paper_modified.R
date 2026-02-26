@@ -667,7 +667,7 @@ check_and_plot_residuals <- function(model,
       ylab("emp. quantiles")
     ggsave(filename = paste0("Figures/qq/qq_", 
                              network_name, "_county_",  
-                             county, ".pdf"), 
+                             county, ".png"), 
            plot = g6, 
            width = 10, height = 10, unit = "cm")
   }
