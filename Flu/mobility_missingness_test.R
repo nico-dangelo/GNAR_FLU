@@ -29,9 +29,10 @@ county_pop_2024 <- read_csv("~/Library/CloudStorage/GoogleDrive-nd672@georgetown
 county_pop_10k_limited <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS)
 # drop counties with fewer than 100,000 in 2020-2024
 county_pop_100k_limited <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>100000)) |> select(FIPS)
-
 #restrict flu data by county size
 county_flu_ac_season_norm_10k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_10k_limited$FIPS)
+# saveRDS(object = county_flu_ac_season_norm_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
+
 county_flu_ac_season_norm_100k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_100k_limited$FIPS)
 # Create igraphs for mobility networks and find the largest ---------------
 mobility_igraph_list <- mobility_df_list |> lapply(function(A){A|> select(origin, destination)|> filter(origin %in% county_flu_ac_season_norm$county_fips, destination %in% county_flu_ac_season_norm$county_fips) |> graph_from_data_frame()|> igraph::simplify()})
@@ -191,6 +192,8 @@ mobility_dir_max_CA_GNAR_fit <- fit_and_predict(alpha = 5, beta = c(2,2,2,2,2), 
 summary(mobility_dir_max_CA_GNAR_fit)
 # find dependent design matrix columns to diagnose singularity
 # fullRankMatrix::find_linear_dependent_columns(GNARdesign(mobility_dir_max_CA_GNAR, vts=flu_ts_CA, alphaOrder = 10, betaOrder = c(1,1,1,1,1,1,1,1,1,1)))
+
+
 # MA, RI, CT submodel -----------------------------------------------------
 
 MA_RI_CT_counties <- make_fips_vec(c("MA","RI","CT"), US_county_shape = US_county_shape)
@@ -198,11 +201,13 @@ mobility_df_list_MA_RI_CT <- mobility_df_list |> lapply(function(B){B|> select(o
 mobility_igraph_list_MA_RI_CT <- mobility_df_list_MA_RI_CT |> lapply(graph_from_data_frame)
 mobility_igraph_list_MA_RI_CT |> lapply(gorder) |> unlist()
 mobility_igraph_list_MA_RI_CT |> lapply(gsize) |> unlist() |> which.max()
-flu_ts_df_MA_RI_CT <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+flu_ts_df_MA_RI_CT <- county_flu_ac_season_norm|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[11]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 flu_ts_MA_RI_CT <- as.matrix(flu_ts_df_MA_RI_CT)
 mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR() 
+# GNAR(2[1,1]
 mobility_max_MA_RI_CT_GNAR_fit <- GNARfit(vts=flu_ts_MA_RI_CT, net = mobility_max_MA_RI_CT_GNAR)
 summary(mobility_max_MA_RI_CT_GNAR_fit)
+
 corbit_plot(vts=flu_ts_MA_RI_CT, net=mobility_max_MA_RI_CT_GNAR, max_lag = 10, max_stage = diameter(mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify()), rectangular_plot = "square")
 mobility_max_MA_RI_CT_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net = mobility_max_MA_RI_CT_GNAR, upper_limit = diameter(mobility_igraph_list_MA_RI_CT[[11]]), vts=flu_ts_MA_RI_CT )
 return_best_model(mobility_max_MA_RI_CT_GNAR_fit_many)
@@ -230,38 +235,15 @@ ggplot(MASE_mobility_max_MA_RI_CT_GNAR_fit_best,
     # scale_color_manual(values = color_types,
     #                    labels = label_networks, 
     #                    name = "Network")
-  ggsave(filename = paste0("Figures/GNAR_pandemic_phases/mase_", 
-                           type_name,
-                           "_", 
-                           mase_name, 
-                           "_", 
-                           number_counties,
-                           ".pdf", 
-                           collapse = ""), 
-         plot = g,
-         width = 30, height = 13, units = "cm")ggplot(MASE_mobility_max_MA_RI_CT_GNAR_fit_best, 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  # scale_color_manual(values = color_types,
-  #                    labels = label_networks, 
-  #                    name = "Network")
-ggsave(filename = paste0("Figures/GNAR_pandemic_phases/mase_", 
+  
+
+ggsave(filename = paste0("Figures/~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Figures/MASE", 
                          type_name,
                          "_", 
                          mase_name, 
                          "_", 
                          number_counties,
-                         ".pdf", 
+                         ".png", 
                          collapse = ""), 
        plot = g,
        width = 30, height = 13, units = "cm")
