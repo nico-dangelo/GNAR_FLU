@@ -130,11 +130,11 @@ circle_distance <- function(data) {
   return(dist_df)
 }
 
-network_characteristics <- function(igraph_obj, 
+network_characteristics <- function(igraph_obj, directed=FALSE, 
                                     network_name) {
   
   density <- igraph_obj %>% edge_density() 
-  apl <- igraph_obj %>%  mean_distance(directed = FALSE) 
+  apl <- igraph_obj %>%  mean_distance(directed = directed) 
   
   global_clust <- igraph_obj %>% transitivity(type = "global") 
   mean_local_clust <- igraph_obj %>% 
@@ -149,10 +149,10 @@ network_characteristics <- function(igraph_obj,
   # model Bernoulli Random Graph to check for small world behaviour 
   brg <- sample_gnm(n = igraph_obj %>% gorder(), 
                     m = igraph_obj %>% gsize(), 
-                    directed = FALSE,
+                    directed = directed,
                     loops = FALSE)
   
-  apl_brg <- brg %>% mean_distance(directed = FALSE)
+  apl_brg <- brg %>% mean_distance(directed = directed)
   mean_clustering_brg <- brg %>% 
     transitivity(type = "local",
                  isolates = "zero") %>% 
@@ -168,7 +168,7 @@ network_characteristics <- function(igraph_obj,
   # betweenness
   bet <- betweenness(igraph_obj, 
                      v=V(igraph_obj), 
-                     directed = FALSE)
+                     directed = directed)
   
   min_bet <- bet %>% min() 
   bet[which(bet == min_bet)] 
@@ -198,6 +198,76 @@ network_characteristics <- function(igraph_obj,
   colnames(graph_char) <- c("metric", network_name)
   return(graph_char)
 }
+
+# Sweep possible networks to avoid singular models
+# compute all possible connected subgraphs until a condition is met
+# conditional_subnetworks <- function(graph, model){
+# current <- graph
+# removed <- c()
+# while(gorder(current)>1){
+#   removed_node <- which.min(degree(current))
+# reduced <- delete_vertices(current, removed_node)
+# if(is_connected(current)){
+#   current <- reduced
+# if(residual_var_covar(model)!=0){
+#   break
+#   }
+# } else{
+#     break
+#   }  
+# removed <- c(removed, V(graph)[removed_node])
+# }
+#   
+# return(list(subgraph=current, removed=removed))
+# }
+create_network_max_GNAR <- function(edge_df_list,target_counties,ts_df=county_flu_ac_season_norm, season="2018-2019"){
+  # subset edgelist dataframes
+  network_edge_df_list<- edge_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% target_counties, destination %in% target_counties)})
+  # create igraph objects
+  network_igraph_list <- network_edge_df_list |> lapply(graph_from_data_frame)
+  # select largest networks igraph by edges
+  network_igraph_max_index <- network_igraph_list |> lapply(gsize) |> unlist() |> which.max()
+  network_igraph_max <- network_igraph_list[[network_igraph_max_index]]
+  # network_igraph_min_index <- network_igraph_list |> lapply(gsize) |> unlist() |> which.min()
+  # network_igraph_min <- network_igraph_list[[network_igraph_min_index]]
+  # create GNAR objects
+  network_max_GNAR <- network_igraph_max |> igraph::simplify() |> GNAR::igraphtoGNAR()
+  # network_min_GNAR <- network_igraph_min |> igraph::simplify() |> GNAR::igraphtoGNAR()
+  # create time series objects
+  ts_df_network_max <- ts_df |> filter(county_fips %in% V(network_igraph_max)$name, season==season) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+  # ts_df_network_min <- ts_df |> filter(county_fips %in% V(network_igraph_min)$name, season==season) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+  ts_network_max <- as.matrix(ts_df_network_max)
+  return(list(network_max_GNAR=network_max_GNAR, ts_network_max=ts_network_max))}
+
+
+create_network_min_GNAR <- function(edge_df_list,target_counties,ts_df=county_flu_ac_season_norm, season="2018-2019"){
+  # subset edgelist dataframes
+  network_edge_df_list <- edge_df_list|> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% target_counties, destination %in% target_counties)})
+  # create igraph objects
+  network_igraph_list <- network_edge_df_list |> lapply(graph_from_data_frame)
+  # select smallest networks igraph by edges
+  network_igraph_min_index <- network_igraph_list |> lapply(gsize) |> unlist() |> which.min()
+  network_igraph_min <- network_igraph_list[[network_igraph_min_index]]
+  # create GNAR objects
+  network_min_GNAR <- network_igraph_min |> igraph::simplify() |> GNAR::igraphtoGNAR()
+  #create time series objects
+  ts_df_network_min <- ts_df |> filter(county_fips %in% V(network_igraph_min)$name, season==season) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+  ts_network_min <- as.matrix(ts_df_network_min)
+  return(list(network_min_GNAR=network_max_GNAR, ts_network_max=ts_network_min))
+}
+# Find problematic counties by starting with a model known to be nonsingular and adding nodes and edges until a largest nonsingular model is found
+# GNAR_network_squeeze <- function(GNAR.start, GNAR.end, edge_df_list, ts_df){
+#  g_current<- GNAR::GNARtoigraph(GNAR.start[[1]]) |> as_directed()
+#  g_end <- GNAR::GNARtoigraph(GNAR.end[[1]]) |> as_directed()
+#  # g_diff <- igraph::difference(g_end, g_current)
+#  
+#  while(length(V(g_current)%m% V(g_end))!=0){
+#   added_node <- setdiff(V(g_end), V(g_current))[1]
+#    g_new <- add_vertices(g_current, added_node)
+#    g_current <- union(g_current, difference(g_end, g_current))
+#  }
+# }
+
 
 # Time series functions -------------------------------------
 
@@ -393,9 +463,6 @@ else return(list(county_index_knn, max_SPL_knn_list, knn_GNAR_list))
 
 
 # #GNAR fitting and prediction functions. Modified from Armbruster --------
-
-
-    
 fit_and_predict <- function(alpha, beta, 
                             globalalpha=TRUE, 
                             net,
@@ -469,12 +536,15 @@ fit_and_predict <- function(alpha, beta,
   
   if (!return_model) {
     # return data frame with RSS, log likelihood, and BIC value for model 
-    ifelse(logLik(model)!=0,
+   larg <- residual_var_covar(model)
+   if(larg==0){paste("singular model"); return(model)}
+   
+   else {print(paste("likelihood", larg))
     return(data.frame(
     "RSS" = model$mod$residuals^2 %>% sum(), 
-                      "LogLik" = logLik(model),
-                      "BIC" = BIC(model))), break)
-  } 
+                      "LogLik" = logLik(model), 
+                       "BIC" = BIC(model)))
+}}
   if (return_model) {
     # return model 
     return(model)
@@ -544,7 +614,8 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                                      # if TRUE, the original GNARfit() function is applied
                                      old = TRUE,
                                      
-                                     forecast_window = 5) {
+                                     forecast_window = 5, 
+                                     return_models=FALSE) {
   
   train_window <- dim(vts)[1] - forecast_window
   
@@ -611,6 +682,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                   sep = "-")
     
     # fit model
+    if(return_models){
     results <- fit_and_predict(alpha = model_setting$Var1, 
                                beta = model_setting$Var2[[1]], 
                                globalalpha = model_setting$Var3 %>% as.logical(), 
@@ -619,7 +691,19 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                                inverse_distance = inverse_distance,
                                county_index = county_index, 
                                old = old, 
-                               forecast_window = forecast_window, return_model = FALSE)
+                               forecast_window = forecast_window, return_model = TRUE)
+    }
+    if(!return_models){
+      results <- fit_and_predict(alpha = model_setting$Var1, 
+                                 beta = model_setting$Var2[[1]], 
+                                 globalalpha = model_setting$Var3 %>% as.logical(), 
+                                 net = net, vts = vts, 
+                                 weight_factor = weight_factor, 
+                                 inverse_distance = inverse_distance,
+                                 county_index = county_index, 
+                                 old = old, 
+                                 forecast_window = forecast_window, return_model = FALSE)
+    }
     results$name <- name
     BIC_RSS <- rbind(BIC_RSS, 
                      results)
@@ -790,4 +874,130 @@ compute_MASE <- function(model,
   
   return(mase_df %>% na.omit())
 }
+# check residual variance-covariance matrix for singularity to ensure valid likelihood and BIC 
+residual_var_covar <- function(object,...){
+  stopifnot(is.GNARfit(object))
+  nnodes.in <- object$frbic$nnodes
+  alphas.in <- object$frbic$alphas.in
+  betas.in <- object$frbic$betas.in
+  fact.var <- object$frbic$fact.var
+  tot.time <- object$frbic$time.in
+  globalalpha <- object$frbic$globalalpha
+  dotarg <- list(...)
+  if (length(dotarg) != 0) {
+    if (!is.null(names(dotarg))) {
+      warning("... not used here, input(s) ", paste(names(dotarg), 
+                                                    collapse = ", "), " ignored")
+    }
+    else {
+      warning("... not used here, input(s) ", paste(dotarg, 
+                                                    collapse = ", "), " ignored")
+    }
+  }
+  if (!is.null(fact.var)) {
+    f.in <- length(unique(fact.var))
+  }
+  else {
+    f.in <- 1
+  }
+  stopifnot(is.logical(globalalpha))
+  stopifnot(length(nnodes.in) == 1)
+  stopifnot(floor(nnodes.in) == nnodes.in)
+  stopifnot(tot.time != 0)
+  tmp.resid <- residToMat(GNARobj = object, nnodes = nnodes.in)$resid
+  tmp.resid[is.na(tmp.resid)] <- 0
+  larg <- det((1/tot.time) * t(tmp.resid) %*% tmp.resid)
+return(larg)}
 
+check_GNAR_singularity <- function(graph, vts, alpha=2, beta=c(1,1)){
+  GNAR_object <- GNAR::igraphtoGNAR(graph)
+  model <- GNARfit(vts=vts, net = GNAR_object, globalalpha = T, alphaOrder = alpha, betaOrder = beta)
+  is.model.singular <- ifelse(residual_var_covar(model)==0,T,F)
+return(is.model.singular)}
+
+GNARfit_sandwich <- function(vts, net, alphaOrder=2, betaOrder=c(1,1), fact.var=NULL, globalalpha=TRUE, tvnets=NULL, netsstart=NULL,ErrorIfNoNei=TRUE){
+  stopifnot(is.GNARnet(net))
+  stopifnot(ncol(vts) == length(net$edges))
+  stopifnot(alphaOrder > 0)
+  stopifnot(floor(alphaOrder) == alphaOrder)
+  stopifnot(length(betaOrder) == alphaOrder)
+  stopifnot(floor(betaOrder) == betaOrder)
+  if (!is.null(fact.var)) {
+    stopifnot(length(fact.var) == length(net$edges))
+  }
+  stopifnot(is.matrix(vts))
+  stopifnot(is.logical(globalalpha))
+  if (!is.null(tvnets)) {
+    cat("Time-varying networks not yet supported")
+  }
+  stopifnot(is.null(tvnets))
+  useNofNei <- 1
+  frbic <- list(nnodes = length(net$edges), alphas.in = alphaOrder, 
+                betas.in = betaOrder, fact.var = fact.var, globalalpha = globalalpha, 
+                xtsp = tsp(vts), time.in = nrow(vts), net.in = net, 
+                final.in = vts[(nrow(vts) - alphaOrder + 1):nrow(vts), 
+                ])
+  dmat <- GNARdesign(vts = vts, net = net, alphaOrder = alphaOrder, 
+                     betaOrder = betaOrder, fact.var = fact.var, globalalpha = globalalpha, 
+                     tvnets = tvnets, netsstart = netsstart)
+  if (ErrorIfNoNei) {
+    if (any(apply(dmat == 0, 2, all))) {
+      parname <- strsplit(names(which(apply(dmat == 0, 
+                                            2, all)))[1], split = NULL)[[1]]
+      betastage <- parname[(which(parname == ".") + 1):(length(parname))]
+      stop("beta order too large for network, use max neighbour set smaller than ", 
+           betastage)
+    }
+  }
+  predt <- nrow(vts) - alphaOrder
+  yvec <- NULL
+  for (ii in 1:length(net$edges)) {
+    yvec <- c(yvec, vts[((alphaOrder + 1):(predt + alphaOrder)), 
+                        ii])
+  }
+  if (sum(is.na(yvec)) > 0) {
+    yvec2 <- yvec[!is.na(yvec)]
+    dmat2 <- dmat[!is.na(yvec), ]
+    modNoIntercept <- sandwich::sandwich(lm(yvec2 ~ dmat2 + 0))
+  }
+  else {
+    modNoIntercept <- sandwich::sandwich(lm(yvec ~ dmat + 0))
+  }
+  out <- list(mod = modNoIntercept, y = yvec, dd = dmat, frbic = frbic)
+  # class(out) <- "GNARfit"
+  return(out)  
+return(GNAR_sandwich)}
+
+residual_var_covar_sandwich <- function(object,...){
+  # stopifnot(is.GNARfit(object))
+  nnodes.in <- object$frbic$nnodes
+  alphas.in <- object$frbic$alphas.in
+  betas.in <- object$frbic$betas.in
+  fact.var <- object$frbic$fact.var
+  tot.time <- object$frbic$time.in
+  globalalpha <- object$frbic$globalalpha
+  dotarg <- list(...)
+  if (length(dotarg) != 0) {
+    if (!is.null(names(dotarg))) {
+      warning("... not used here, input(s) ", paste(names(dotarg), 
+                                                    collapse = ", "), " ignored")
+    }
+    else {
+      warning("... not used here, input(s) ", paste(dotarg, 
+                                                    collapse = ", "), " ignored")
+    }
+  }
+  if (!is.null(fact.var)) {
+    f.in <- length(unique(fact.var))
+  }
+  else {
+    f.in <- 1
+  }
+  stopifnot(is.logical(globalalpha))
+  stopifnot(length(nnodes.in) == 1)
+  stopifnot(floor(nnodes.in) == nnodes.in)
+  stopifnot(tot.time != 0)
+  # tmp.resid <- residToMat(GNARobj = object, nnodes = nnodes.in)$resid
+  # tmp.resid[is.na(tmp.resid)] <- 0
+  larg <- sandwich::vcovHAC(object)
+  return(larg)}
