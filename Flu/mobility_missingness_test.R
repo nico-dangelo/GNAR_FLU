@@ -25,15 +25,17 @@ Z[, destination:= mobility_county_fips_index[.(destination), GEO_ID]]})
 # saveRDS(mobility_df_list, file = "~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list.rds")
 # Population data processing ----------------------------------------------
 county_pop_2024 <- read_csv("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_population_with_fips.csv")
-#drop counties with fewer than 10,000 in 2020-2024
-county_pop_10k_limited <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS)
-# drop counties with fewer than 100,000 in 2020-2024
-county_pop_100k_limited <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>100000)) |> select(FIPS)
+#drop counties with fewer than 10,000 in 2020
+county_pop_10k_limited <- county_pop_2024 %>% filter(`2020` > 10000) |> select(FIPS) |>pull()
+# drop counties with fewer than 100,000 in 2020
+county_pop_100k_limited <- county_pop_2024 %>% filter(`2020`>100000) |> select(FIPS) |> pull()
 #restrict flu data by county size
-county_flu_ac_season_norm_10k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_10k_limited$FIPS)
-# saveRDS(object = county_flu_ac_season_norm_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
+county_flu_ac_season_norm_10k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_10k_limited)
+saveRDS(object = county_flu_ac_season_norm_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
 
-county_flu_ac_season_norm_100k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_100k_limited$FIPS)
+county_flu_ac_season_norm_100k <- county_flu_ac_season_norm |> filter(county_fips %in% county_pop_100k_limited)
+saveRDS(object = county_flu_ac_season_norm_100k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_100k.RDS")
+
 # Create igraphs for mobility networks and find the largest ---------------
 mobility_igraph_list <- mobility_df_list |> lapply(function(A){A|> select(origin, destination)|> filter(origin %in% county_flu_ac_season_norm$county_fips, destination %in% county_flu_ac_season_norm$county_fips) |> graph_from_data_frame()|> igraph::simplify()})
 #nodes
