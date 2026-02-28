@@ -9,6 +9,8 @@ library(xtable)
 mobility_df_list <- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list.rds")
 flu_ts_df_restricted <- county_flu_ac_season_norm |> filter(season=="2018-2019", county_fips %in% V(mobility_igraph_list[[10]])$name) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  
 flu_ts_restricted <- as.matrix(flu_ts_df_restricted)
+county_flu_ac_season_norm_10k<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
+
 mobility_df_list_10k <- mobility_df_list |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% county_flu_ac_season_norm_10k$county_fips, destination %in% county_flu_ac_season_norm_10k$county_fips)})
 
 #full country model, need mobility_missingness script!
@@ -24,9 +26,9 @@ mobility_GNAR_restricted_fit <- GNARfit(vts=flu_ts_restricted, net=mobility_GNAR
 # New England population-restricted season model --------------------------
 county_flu_ac_season_norm_10k<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
 county_pop_2024 <- read_csv("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_population_with_fips.csv")
-NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_shape = US_county_shape)
-# flu_ts_df_NEng_10k_restricted <- county_flu_ac_season_norm_10k |> filter(season=="2018-2019", county_fips %in% NEng_counties) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
-# flu_ts_NEng_10k_restricted <- as.matrix(flu_ts_df_NEng_10k_restricted)
+NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), county_shape = US_county_shape)
+flu_ts_df_NEng_10k_restricted <- county_flu_ac_season_norm_10k |> filter(season=="2018-2019", county_fips %in% NEng_counties) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
+flu_ts_NEng_10k_restricted <- as.matrix(flu_ts_df_NEng_10k_restricted)
 # mobility_df_list_NEng_10k <- mobility_df_list_10k |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties) })
 # mobility_igraph_list_NEng_10k <- mobility_df_list_NEng_10k |> lapply(function(X){X |> select(origin, destination) |> graph_from_data_frame()|> igraph::simplify()})
 # mobility_igraph_list_NEng_10k |> lapply(gorder) |> unlist() |> which.max()
@@ -35,8 +37,8 @@ NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_
 # mobility_GNAR_NEng_10k_restricted <- igraphtoGNAR(mobility_igraph_list_NEng_10k[[11]])
 mobility_max_NEng_10k_restricted_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_10k, target_counties = NEng_counties)
 mobility_max_NEng_10k_restricted_GNAR_fit <- GNARfit(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
-summary(mobility_GNAR_NEng_10k_restricted_fit)
-GNARfit_sandwich(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
+summary(mobility_max_NEng_10k_restricted_GNAR_fit)
+# GNARfit_sandwich(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
 # sandwich(mobility_max_NEng_10k_restricted_GNAR_fit)
 # sandwich::vcovHAC(mobility_max_NEng_10k_restricted_GNAR_fit)
 # Diagnose issues with fit by removing states and using GNAR plots 
@@ -46,7 +48,7 @@ local_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2)
 node_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2, node_names = V(mobility_igraph_list_NEng_10k[[11]])$name)
 #investigate county 23021, Piscataquis County, Maine remove counties below 20k
 # NEng_counties_20k <- NEng_counties[NEng_counties!="23021"]
-NEng_counties_20k<- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>20000)) |> select(FIPS) |> filter(FIPS %in% NEng_counties)  
+NEng_counties_20k<- county_pop_2024 %>% filter(`2020`>20000) |> select(FIPS, County) |> filter(FIPS %in% NEng_counties | grepl("Connecticut", County))  |> pull()
 flu_ts_df_NEng_20k_restricted <- county_flu_ac_season_norm |> filter(county_fips %in% NEng_counties_20k$FIPS, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
 flu_ts_NEng_20k_restricted <- as.matrix(flu_ts_df_NEng_20k_restricted)
 mobility_df_list_NEng_20k <- mobility_df_list_NEng_10k |> lapply(function(X){X|> select(origin,destination) |> filter(origin %in% NEng_counties_20k$FIPS, destination %in% NEng_counties_20k$FIPS)})
