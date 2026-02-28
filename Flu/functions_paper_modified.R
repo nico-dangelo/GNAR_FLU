@@ -29,7 +29,7 @@ state_fips_lookup <- function(usps){
   return(statefp)
 }
 # create universal FIPS vector 
-make_fips_vec <- function(fips_query, US_county_shape){
+make_fips_vec <- function(fips_query, county_shape=US_county_shape){
   fips_query <- as.character(fips_query)
   #All available FIPS codes
   # all_fips<- US_county_shape$GEOID
