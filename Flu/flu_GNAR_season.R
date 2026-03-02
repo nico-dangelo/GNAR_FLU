@@ -37,6 +37,7 @@ flu_ts_NEng_10k_restricted <- as.matrix(flu_ts_df_NEng_10k_restricted)
 # mobility_GNAR_NEng_10k_restricted <- igraphtoGNAR(mobility_igraph_list_NEng_10k[[11]])
 mobility_max_NEng_10k_restricted_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_10k, target_counties = NEng_counties)
 mobility_max_NEng_10k_restricted_GNAR_fit <- GNARfit(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
+vcov(mobility_max_NEng_10k_restricted_GNAR_fit) |> corrplot::corrplot()
 summary(mobility_max_NEng_10k_restricted_GNAR_fit)
 # GNARfit_sandwich(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
 # sandwich(mobility_max_NEng_10k_restricted_GNAR_fit)
@@ -66,6 +67,15 @@ mobility_GNAR_NEng_20k_restricted_fit <- GNARfit(vts=flu_ts_NEng_20k_restricted,
 summary(mobility_GNAR_NEng_20k_restricted_fit)
 
 
+# Difference NEng 10k series ----------------------------------------------
+
+flu_ts_NEng_10k_restricted_diff <- diff(flu_ts_NEng_10k_restricted)
+
+summary(GNARfit(vts=flu_ts_NEng_10k_restricted_diff, net=mobility_max_NEng_10k_restricted_GNAR$network_max_GNAR))
+
+
+# Box-Cox transformation on differenced time series -----------------------
+flu_ts_NEng_10k_restricted_diff |> apply(2, MASS::boxcox)
 
 # MA,RI,CT ----------------------------------------------------------------
 MA_RI_CT_counties <- make_fips_vec(c("MA","RI","CT"), US_county_shape = US_county_shape)
@@ -128,3 +138,31 @@ corbit_plot(vts=flu_ts_HHS_5_10k_restricted, net=mobility_max_HHS_5_10k_restrict
 mobility_max_HHS_5_10k_restricted_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_HHS_5_10k_restricted_GNAR, upper_limit = diameter(mobility_igraph_list_HHS_5_10k[[10]]), globalalpha = T, vts = flu_ts_HHS_5_10k_restricted)
 mobility_max_HHS_5_10k_restricted_GNAR_fit <- GNARfit(vts=flu_ts_HHS_5_10k_restricted, net=mobility_max_HHS_5_10k_restricted_GNAR)
 #singular
+#1-lag once difference HHS 5 series
+flu_ts_HHS_5_10k_restricted_diff <- diff(flu_ts_HHS_5_10k_restricted)
+mobility_max_HHS_5_10k_restricted_diff_GNAR_fit<- GNARfit(vts=flu_ts_HHS_5_10k_restricted_diff, net=mobility_max_HHS_5_10k_restricted_GNAR)
+summary(mobility_max_HHS_5_10k_restricted_diff_GNAR_fit)
+# twice-difference 1-lag
+# flu_ts_HHS_5_10k_restricted_2_diff <- diff(flu_ts_HHS_5_10k_restricted)
+# 50k in 2020 restriction
+HHS_5_counties_50k <- county_pop_2024 |> filter(`2020`>50000) |> select(FIPS) |> filter(FIPS %in% HHS_5_counties) |> pull()
+HHS_5_counties_50k_diff_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, target_counties = HHS_5_counties_50k, ts_df = county_flu_ac_season_norm)
+HHS_5_counties_50k_diff_GNAR_fit<- GNARfit(vts=diff(HHS_5_counties_50k_diff_GNAR[[2]]), net = HHS_5_counties_50k_diff_GNAR[[1]])
+vcov(HHS_5_counties_50k_diff_GNAR_fit)
+summary(HHS_5_counties_50k_diff_GNAR_fit)
+#Singular
+#100k in 2020
+HHS_5_counties_100k <- county_pop_2024 |> filter(`2020`>100000) |> select(FIPS) |> filter(FIPS %in% HHS_5_counties) |> pull()
+HHS_5_counties_100k_diff_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, target_counties = HHS_5_counties_100k, ts_df = county_flu_ac_season_norm)
+HHS_5_counties_100k_diff_GNARfit <- GNARfit(vts=diff(HHS_5_counties_100k_diff_GNAR[[2]]), net = HHS_5_counties_100k_diff_GNAR[[1]])
+summary(HHS_5_counties_100k_diff_GNARfit)
+#150k in 2020
+HHS_5_counties_150k <- county_pop_2024 |> filter(`2020`>150000) |> select(FIPS) |> filter(FIPS %in% HHS_5_counties) |> pull()
+HHS_5_counties_150k_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, ts_df = county_flu_ac_season_norm, target_counties = HHS_5_counties_150k)
+HHS_5_counties_150k_diff_GNAR_fit <- GNARfit(vts=diff(HHS_5_counties_150k_GNAR[[2]]), net=HHS_5_counties_150k_GNAR[[1]]) 
+summary(HHS_5_counties_150k_diff_GNAR_fit)
+# twice-difference series 
+#need to check with diff dataframe version
+HHS_5_counties_150k_2diff_GNAR <- list(network_max_GNAR=HHS_5_counties_150k_GNAR[[1]], ts_network_max=diff(HHS_5_counties_150k_GNAR[[2]]))
+HHS_5_counties_150k_2diff_GNAR_fit<- GNARfit(net=HHS_5_counties_150k_2diff_GNAR[[1]], vts=HHS_5_counties_150k_2diff_GNAR[[2]]) 
+summary(HHS_5_counties_150k_2diff_GNAR_fit)
