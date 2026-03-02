@@ -220,7 +220,7 @@ network_characteristics <- function(igraph_obj, directed=FALSE,
 #   
 # return(list(subgraph=current, removed=removed))
 # }
-create_network_max_GNAR <- function(edge_df_list,target_counties,ts_df=county_flu_ac_season_norm, season="2018-2019"){
+create_network_max_GNAR <- function(edge_df_list,target_counties,ts_df=county_flu_ac_season_norm, s="2018-2019"){
   # subset edgelist dataframes
   network_edge_df_list<- edge_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% target_counties, destination %in% target_counties)})
   # create igraph objects
@@ -234,7 +234,7 @@ create_network_max_GNAR <- function(edge_df_list,target_counties,ts_df=county_fl
   network_max_GNAR <- network_igraph_max |> igraph::simplify() |> GNAR::igraphtoGNAR()
   # network_min_GNAR <- network_igraph_min |> igraph::simplify() |> GNAR::igraphtoGNAR()
   # create time series objects
-  ts_df_network_max <- ts_df |> filter(county_fips %in% V(network_igraph_max)$name, season==season) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+  ts_df_network_max <- ts_df |> filter(county_fips %in% V(network_igraph_max)$name) |> filter(season==s) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
   # ts_df_network_min <- ts_df |> filter(county_fips %in% V(network_igraph_min)$name, season==season) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
   ts_network_max <- as.matrix(ts_df_network_max)
   return(list(network_max_GNAR=network_max_GNAR, ts_network_max=ts_network_max))}
@@ -827,7 +827,7 @@ compute_MASE <- function(model,
                            as.Date(end_date), 
                            by = 7)
   
-  # compare true 1-lag COVID-19 ID and predicted values 
+  # compare true 1-lag ID and predicted values 
   true <- data_df[(length_data_df - n_ahead + 1):length_data_df, ] %>% 
     gather(key = "CountyName",
            value = "true", 
@@ -1001,3 +1001,5 @@ residual_var_covar_sandwich <- function(object,...){
   # tmp.resid[is.na(tmp.resid)] <- 0
   larg <- sandwich::vcovHAC(object)
   return(larg)}
+
+
