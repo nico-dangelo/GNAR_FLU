@@ -93,7 +93,7 @@ names(cent_coord) <- US_county_shape$GEOID
 # Time Series Diagnostics -------------------------------------------------
 # Differencing
 county_flu_ac_season_norm_diff<- county_flu_ac_season_norm |> group_by(county_fips) |> mutate(conf_flu_norm_Diff=c(0,diff(conf_flu_norm, lag=1))) |>ungroup()
-which.min(county_flu_ac_season_norm_diff$flu_norm_conf_Diff)
+which.min(county_flu_ac_season_norm_diff$conf_flu_norm_Diff)
 
 # Ljung-Box Tests ---------------------------------------------------------
 
