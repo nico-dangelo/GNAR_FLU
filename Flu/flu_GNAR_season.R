@@ -38,6 +38,45 @@ NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), county_sha
 mobility_max_NEng_10k_restricted_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_10k, target_counties = NEng_counties)
 mobility_max_NEng_10k_restricted_GNAR_fit <- GNARfit(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
 GNARtoigraph(mobility_max_NEng_10k_restricted_GNAR[[1]]) |> diameter()
+# vcov(mobility_max_NEng_10k_restricted_GNAR_fit) |> corrplot::corrplot()
+# summary(mobility_max_NEng_10k_restricted_GNAR_fit)
+# GNARfit_sandwich(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
+# sandwich(mobility_max_NEng_10k_restricted_GNAR_fit)
+# sandwich::vcovHAC(mobility_max_NEng_10k_restricted_GNAR_fit)
+# Diagnose issues with fit by removing states and using GNAR plots 
+cross_correlation_plot(2, vts=flu_ts_NEng_10k_restricted)
+active_node_plot(vts=flu_ts_NEng_10k_restricted, network=mobility_GNAR_NEng_10k_restricted, max_lag = 2, r_stages=c(1,1))
+local_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2)
+node_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2, node_names = V(mobility_igraph_list_NEng_10k[[11]])$name)
+#investigate county 23021, Piscataquis County, Maine remove counties below 20k
+# NEng_counties_20k <- NEng_counties[NEng_counties!="23021"]
+NEng_counties_20k<- county_pop_2024 %>% filter(`2020`>20000) |> select(FIPS, County) |> filter(FIPS %in% NEng_counties | grepl("Connecticut", County))  |> pull()
+flu_ts_df_NEng_20k_restricted <- county_flu_ac_season_norm |> filter(county_fips %in% NEng_counties_20k$FIPS, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
+flu_ts_NEng_20k_restricted <- as.matrix(flu_ts_df_NEng_20k_restricted)
+mobility_df_list_NEng_20k <- mobility_df_list_NEng_10k |> lapply(function(X){X|> select(origin,destination) |> filter(origin %in% NEng_counties_20k$FIPS, destination %in% NEng_counties_20k$FIPS)})
+mobility_igraph_list_NEng_20k <- mobility_df_list_NEng_20k |> lapply(function(X){X|> select(origin, destination) |> graph_from_data_frame()|> igraph::simplify()})
+mobility_igraph_list_NEng_20k |> lapply(gorder) |> unlist()  
+mobility_igraph_list_NEng_20k |> lapply(gsize) |> unlist() |> which.max()
+#11
+mobility_GNAR_NEng_20k_restricted <- igraphtoGNAR(mobility_igraph_list_NEng_20k[[11]])
+corbit_plot(net=mobility_GNAR_NEng_20k_restricted, max_lag=5, max_stage = diameter(mobility_igraph_list_NEng_20k[[11]]), rectangular_plot = "square", vts=flu_ts_NEng_20k_restricted)
+cross_correlation_plot(2, vts=flu_ts_NEng_20k_restricted)
+active_node_plot(vts=flu_ts_NEng_20k_restricted, network=mobility_GNAR_NEng_20k_restricted, max_lag = 2, r_stages=c(1,1))
+local_relevance_plot(network=mobility_GNAR_NEng_20k_restricted, r_star=2)
+node_relevance_plot(network=mobility_GNAR_NEng_20k_restricted, r_star=1, node_names = V(mobility_igraph_list_NEng_20k[[11]])$name)
+mobility_GNAR_NEng_20k_restricted_fit <- GNARfit(vts=flu_ts_NEng_20k_restricted, net = mobility_GNAR_NEng_20k_restricted)
+summary(mobility_GNAR_NEng_20k_restricted_fit)
+
+
+# Difference NEng 10k series ----------------------------------------------
+
+flu_ts_NEng_10k_restricted_diff <- diff(flu_ts_NEng_10k_restricted)
+
+summary(GNARfit(vts=flu_ts_NEng_10k_restricted_diff, net=mobility_max_NEng_10k_restricted_GNAR$network_max_GNAR))
+
+
+# Box-Cox transformation on differenced time series -----------------------
+flu_ts_NEng_10k_restricted_diff |> apply(2, MASS::boxcox)
 
 # New England Unrestricted model ------------------------------------------
 NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), county_shape = US_county_shape)
@@ -50,7 +89,7 @@ NEng_county_index <- data.frame("county_fips"=mobility_igraph_list_NEng[[11]]|> 
 mobility_igraph_list_NEng_max_adj<- mobility_igraph_list_NEng[[11]] |> igraph::simplify() |> as_adjacency_matrix(sparse=F)
 mobility_GNAR_NEng<- mobility_igraph_list_NEng[[11]] |> igraph::simplify() |> igraphtoGNAR()
 mobility_GNAR_NEng_adj <- as.matrix(mobility_GNAR_NEng)
-igraph::difference(mobility_igraph_list_NEng[[11]], GNARtoigraph(mobility_GNAR_NEng))
+# igraph::difference(mobility_igraph_list_NEng[[11]], GNARtoigraph(mobility_GNAR_NEng))
 
 flu_ts_df_NEng <- county_flu_ac_season_norm |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_NEng[[11]])$name, year(year_week_dt)>=2019 )|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 # sp_SFK_GNAR_NEng <- mobility_igraph_list_NEng[[11]] |> shortest_paths(from="25025", output= "epath", predecessors = TRUE)
@@ -136,72 +175,97 @@ plot(
   vertex.color = "black",
   edge.curved = 0.3,
   edge.color="red")
-
-# vcov(mobility_max_NEng_10k_restricted_GNAR_fit) |> corrplot::corrplot()
-# summary(mobility_max_NEng_10k_restricted_GNAR_fit)
-# GNARfit_sandwich(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
-# sandwich(mobility_max_NEng_10k_restricted_GNAR_fit)
-# sandwich::vcovHAC(mobility_max_NEng_10k_restricted_GNAR_fit)
-# Diagnose issues with fit by removing states and using GNAR plots 
-cross_correlation_plot(2, vts=flu_ts_NEng_10k_restricted)
-active_node_plot(vts=flu_ts_NEng_10k_restricted, network=mobility_GNAR_NEng_10k_restricted, max_lag = 2, r_stages=c(1,1))
-local_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2)
-node_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2, node_names = V(mobility_igraph_list_NEng_10k[[11]])$name)
-#investigate county 23021, Piscataquis County, Maine remove counties below 20k
-# NEng_counties_20k <- NEng_counties[NEng_counties!="23021"]
-NEng_counties_20k<- county_pop_2024 %>% filter(`2020`>20000) |> select(FIPS, County) |> filter(FIPS %in% NEng_counties | grepl("Connecticut", County))  |> pull()
-flu_ts_df_NEng_20k_restricted <- county_flu_ac_season_norm |> filter(county_fips %in% NEng_counties_20k$FIPS, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
-flu_ts_NEng_20k_restricted <- as.matrix(flu_ts_df_NEng_20k_restricted)
-mobility_df_list_NEng_20k <- mobility_df_list_NEng_10k |> lapply(function(X){X|> select(origin,destination) |> filter(origin %in% NEng_counties_20k$FIPS, destination %in% NEng_counties_20k$FIPS)})
-mobility_igraph_list_NEng_20k <- mobility_df_list_NEng_20k |> lapply(function(X){X|> select(origin, destination) |> graph_from_data_frame()|> igraph::simplify()})
-mobility_igraph_list_NEng_20k |> lapply(gorder) |> unlist()  
-mobility_igraph_list_NEng_20k |> lapply(gsize) |> unlist() |> which.max()
-#11
-mobility_GNAR_NEng_20k_restricted <- igraphtoGNAR(mobility_igraph_list_NEng_20k[[11]])
-corbit_plot(net=mobility_GNAR_NEng_20k_restricted, max_lag=5, max_stage = diameter(mobility_igraph_list_NEng_20k[[11]]), rectangular_plot = "square", vts=flu_ts_NEng_20k_restricted)
-cross_correlation_plot(2, vts=flu_ts_NEng_20k_restricted)
-active_node_plot(vts=flu_ts_NEng_20k_restricted, network=mobility_GNAR_NEng_20k_restricted, max_lag = 2, r_stages=c(1,1))
-local_relevance_plot(network=mobility_GNAR_NEng_20k_restricted, r_star=2)
-node_relevance_plot(network=mobility_GNAR_NEng_20k_restricted, r_star=1, node_names = V(mobility_igraph_list_NEng_20k[[11]])$name)
-mobility_GNAR_NEng_20k_restricted_fit <- GNARfit(vts=flu_ts_NEng_20k_restricted, net = mobility_GNAR_NEng_20k_restricted)
-summary(mobility_GNAR_NEng_20k_restricted_fit)
+# plot diameter path in stage 1  graph
+GNAR_NEng_diameter <- stage_1_GNAR_NEng |> get_diameter()
+GNAR_NEng_diameter_path <- shortest_paths(stage_1_GNAR_NEng, from = GNAR_NEng_diameter[1], to=GNAR_NEng_diameter[3], output = "epath")
+E(stage_1_GNAR_NEng)$color <- "grey"
+E(stage_1_GNAR_NEng)[GNAR_NEng_diameter_path$epath[[1]]]$color <- "red"
+plot(st_geometry(NEng_county_shape))
+plot(
+stage_1_GNAR_NEng,
+add=T,
+rescale=F,
+layout=graph_layout_NEng,
+vertex.label= NA,
+vertex.size = 3,
+edge.width = 2,
+edge.arrow.width = 0.5,
+edge.arrow.size = 0.3,
+vertex.color = "black",
+edge.curved = 0.3,
+edge.color=E(stage_1_GNAR_NEng)$color
+)
 
 
-# Difference NEng 10k series ----------------------------------------------
+# Wagner, Correlation, influence/relevance, and active node plots -------------------
+#Wagner NACF
+corbit_plot(vts=flu_ts_NEng, net=mobility_GNAR_NEng, max_lag = 10, max_stage = 2, rectangular_plot = "square")
 
-flu_ts_NEng_10k_restricted_diff <- diff(flu_ts_NEng_10k_restricted)
+#Wagner PNACF
+corbit_plot(vts=flu_ts_NEng, net=mobility_GNAR_NEng, max_lag = 10, max_stage = 2, rectangular_plot = "square", partial = "yes")
 
-summary(GNARfit(vts=flu_ts_NEng_10k_restricted_diff, net=mobility_max_NEng_10k_restricted_GNAR$network_max_GNAR))
+# Cross-correlation
+cross_correlation_plot(vts=flu_ts_NEng, h=1)
+# #Local Neighborhood 
+local_relevance_plot(network = mobility_GNAR_NEng,2)
+# #local node/ active node
+active_node_plot(vts=flu_ts_NEng, max_lag=2, r_stages = c(1,0), network=mobility_GNAR_NEng)
+# #Global
+node_relevance_plot(mobility_GNAR_NEng, r_star=2)
+glob_index_NENG <- node_relevance_plot(mobility_GNAR_NEng, r_star=2)[[2]] 
+glob_index_NENG$Node <- NEng_county_index[match(glob_index_NENG$Node, NEng_county_index$index), "county_fips"]
 
-
-# Box-Cox transformation on differenced time series -----------------------
-flu_ts_NEng_10k_restricted_diff |> apply(2, MASS::boxcox)
+# Plot network coloured by globindex --------------------------------------
+plot(st_geometry(NEng_county_shape))
+plot(stage_1_GNAR_NEng,
+     vertex.size = 3,
+     edge.width = 1,
+     edge.arrow.width = 0.5,
+     edge.arrow.size = 0.3,
+     vertex.color = glob_index_NENG$Relevance,
+     edge.curved = 0.3  
+)
 
 # MA,RI,CT ----------------------------------------------------------------
 MA_RI_CT_counties <- make_fips_vec(c("MA","RI","CT"), county_shape = US_county_shape)
-# mobility_df_list_MA_RI_CT <- mobility_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% MA_RI_CT_counties, destination %in% MA_RI_CT_counties)})
-# mobility_igraph_list_MA_RI_CT <- mobility_df_list_MA_RI_CT |> lapply(graph_from_data_frame)
-# mobility_igraph_list_MA_RI_CT |> lapply(gorder) |> unlist()
-# mobility_igraph_list_MA_RI_CT |> lapply(gsize) |> unlist() |> which.max()
-# flu_ts_df_MA_RI_CT_restricted <- county_flu_ac_season_norm|> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[11]])$name, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
-# flu_ts_MA_RI_CT_restricted <- as.matrix(flu_ts_df_MA_RI_CT_restricted)
+mobility_df_list_MA_RI_CT <- mobility_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% MA_RI_CT_counties, destination %in% MA_RI_CT_counties)})
+mobility_igraph_list_MA_RI_CT <- mobility_df_list_MA_RI_CT |> lapply(graph_from_data_frame)
+mobility_igraph_list_MA_RI_CT |> lapply(gorder) |> unlist()
+mobility_igraph_list_MA_RI_CT |> lapply(gsize) |> unlist() |> which.max()
+flu_ts_df_MA_RI_CT <- county_flu_ac_season_norm|> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[11]])$name, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
+flu_ts_MA_RI_CT <- as.matrix(flu_ts_df_MA_RI_CT_restricted)
 
-# mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR()
-mobility_max_MA_RI_CT_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, target_counties = MA_RI_CT_counties)
-mobility_max_MA_RI_CT_restricted_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_MA_RI_CT_GNAR[[1]], upper_limit = mobility_max_MA_RI_CT_GNAR[[3]], vts=mobility_max_MA_RI_CT_GNAR[[2]], globalalpha = T )
-return_best_model(mobility_max_MA_RI_CT_restricted_GNAR_fit_many)
+mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR()
+# mobility_max_MA_RI_CT_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, target_counties = MA_RI_CT_counties)
+# mobility_max_MA_RI_CT_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_MA_RI_CT_GNAR[[1]], upper_limit = mobility_max_MA_RI_CT_GNAR[[3]], vts=mobility_max_MA_RI_CT_GNAR[[2]], globalalpha = T )
+# return_best_model(mobility_max_MA_RI_CT_GNAR_fit_many)
 #34
-mobility_max_MA_RI_CT_restricted_GNAR_fit_many[34,"name"]
+mobility_max_MA_RI_CT_GNAR_fit_many[34,"name"]
 # GNAR-10-1111000000-TRUE
-mobility_max_MA_RI_CT_restricted_GNAR_fit_best <- fit_and_predict(alpha=10, globalalpha = T, beta=c(1,1,1,1,0,0,0,0,0,0), vts=mobility_max_MA_RI_CT_GNAR[[2]], forecast_window = 5, return_model = T, net=mobility_max_MA_RI_CT_GNAR[[1]]) 
-summary(mobility_max_MA_RI_CT_restricted_GNAR_fit_best)
+# mobility_max_MA_RI_CT_GNAR_fit_best <- fit_and_predict(alpha=10, globalalpha = T, beta=c(1,1,1,1,0,0,0,0,0,0), vts=mobility_max_MA_RI_CT_GNAR[[2]], forecast_window = 5, return_model = T, net=mobility_max_MA_RI_CT_GNAR[[1]]) 
+# summary(mobility_max_MA_RI_CT_GNAR_fit_best)
 # modelsummary(models = mobility_max_MA_RI_CT_restricted_GNAR_fit_best, output = "markdown")
 # xtable(summary(mobility_max_MA_RI_CT_restricted_GNAR_fit_best))
 
-residuals_mobility_max_MA_RI_CT_restricted_GNAR_fit_best <- check_and_plot_residuals(model=mobility_max_MA_RI_CT_restricted_GNAR_fit_best, data=flu_ts_df_MA_RI_CT_restricted, network_name = mobility_max_MA_RI_CT_restricted_GNAR_fit_many[34,"name"], alpha = 10, n_ahead = 5, counties = MA_RI_CT_counties)
+# residuals_mobility_max_MA_RI_CT_restricted_GNAR_fit_best <- check_and_plot_residuals(model=mobility_max_MA_RI_CT_restricted_GNAR_fit_best, data=flu_ts_df_MA_RI_CT_restricted, network_name = mobility_max_MA_RI_CT_restricted_GNAR_fit_many[34,"name"], alpha = 10, n_ahead = 5, counties = MA_RI_CT_counties)
 
 
 
+# Wagner, Corr, Influence, Relevance --------------------------------------
+GNARfit_MA_RI_CT <- GNARfit(vts=flu_ts_MA_RI_CT, net = mobility_max_MA_RI_CT_GNAR, alphaOrder = 10, betaOrder = c(1,1,1,1,0,0,0,0,0,0))
+#Cross-correlation
+
+cross_correlation_plot(h=1, vts=flu_ts_MA_RI_CT)
+
+# local relevance
+active_node_plot(vts=flu_ts_MA_RI_CT, network = mobility_max_MA_RI_CT_GNAR, max_lag=GNARfit_MA_RI_CT$frbic$alphas.in, r_stages =GNARfit_MA_RI_CT$frbic$betas.in)
+
+#global relevance
+
+GNAR::node_relevance_plot(network = mobility_max_MA_RI_CT_GNAR, r_star =1 )
+globindex_MA_RI_CT<- node_relevance_plot(network = mobility_max_MA_RI_CT_GNAR, r_star =1 )
+#Local neighborhood relevance
+local_relevance_plot(network = mobility_max_MA_RI_CT_GNAR, r_star=1)
 
 #10k population restriction
 MA_RI_CT_counties_10k <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS) |> filter(FIPS %in% MA_RI_CT_counties)  |> pull()
