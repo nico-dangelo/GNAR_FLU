@@ -43,7 +43,7 @@ mobility_igraph_list|> lapply(gorder) |> unlist()
 #edges
 mobility_igraph_list|> lapply(gsize) |> unlist() |> which.max() 
 # Create GNAR objects without mobility weighting --------------------------
-mobility_GNAR <- mobility_igraph_list[[10]] |> simplify() |> igraphtoGNAR()
+mobility_GNAR <- mobility_igraph_list[[10]] |> igraph::simplify() |> igraphtoGNAR()
 # matched_counties <- V(mobility_igraph_list[[10]])$name
 #population-limited mobility data
 
@@ -90,7 +90,7 @@ GNAR::local_relevance_plot(network = mobility_100k_GNAR, r_star = 1)
 GNAR::node_relevance_plot(network = mobility_100k_GNAR, r_star=1, node_names=V(mobility_igraph_list_100k[[5]])$name)
 # NEng subset -------------------------------------------------------------
 #now with 10k restriction
-NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), US_county_shape = US_county_shape)
+NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), county_shape = US_county_shape)
 mobility_df_list_NEng<- mobility_df_list_10k|> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties)})
 mobility_igraph_list_NEng <- mobility_df_list_NEng |> lapply(graph_from_data_frame)
 mobility_igraph_list_NEng |> lapply(gorder) |> unlist() 
