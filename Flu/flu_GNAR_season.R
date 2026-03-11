@@ -185,7 +185,8 @@ MA_RI_CT_counties <- make_fips_vec(c("MA","RI","CT"), county_shape = US_county_s
 # mobility_igraph_list_MA_RI_CT |> lapply(gsize) |> unlist() |> which.max()
 # flu_ts_df_MA_RI_CT_restricted <- county_flu_ac_season_norm|> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[11]])$name, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 # flu_ts_MA_RI_CT_restricted <- as.matrix(flu_ts_df_MA_RI_CT_restricted)
-mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR()
+
+# mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR()
 mobility_max_MA_RI_CT_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, target_counties = MA_RI_CT_counties)
 mobility_max_MA_RI_CT_restricted_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_MA_RI_CT_GNAR[[1]], upper_limit = mobility_max_MA_RI_CT_GNAR[[3]], vts=mobility_max_MA_RI_CT_GNAR[[2]], globalalpha = T )
 return_best_model(mobility_max_MA_RI_CT_restricted_GNAR_fit_many)
@@ -212,6 +213,9 @@ mobility_igraph_list_MA_RI_CT_10k |> lapply(gsize) |> unlist() |> which.max()
 flu_ts_df_MA_RI_CT_10k_restricted <- county_flu_ac_season_norm_10k |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT_10k[[9]])$name, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
 flu_ts_MA_RI_CT_10k_restricted <- as.matrix(flu_ts_df_MA_RI_CT_10k_restricted)
 mobility_max_MA_RI_CT_10k_GNAR <- mobility_igraph_list_MA_RI_CT_10k[[9]]  |>  igraph::simplify() |> igraphtoGNAR() 
+MA_RI_CT_10k_county_index <- data.frame("county_fips"=V(mobility_igraph_list_MA_RI_CT_10k[[9]]) |> names(), "index"=seq_along(V(mobility_igraph_list_MA_RI_CT_10k[[9]])))
+
+
 corbit_plot(vts=flu_ts_MA_RI_CT_10k_restricted, net=mobility_max_MA_RI_CT_10k_GNAR, max_lag = 10, max_stage = diameter(mobility_igraph_list_MA_RI_CT_10k[[9]] |> igraph::simplify()), rectangular_plot = "square")
 
 mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net = mobility_max_MA_RI_CT_10k_GNAR, upper_limit = diameter(mobility_igraph_list_MA_RI_CT_10k[[9]]), vts=flu_ts_MA_RI_CT_10k_restricted)
@@ -232,16 +236,20 @@ rownames(cent_coord_MA_RI) <- MA_RI_county_shape$GEOID
 # MA_RI_CT_10k_graph <- GNARtoigraph(mobility_max_MA_RI_CT_10k_GNAR)
 # graph2nb(mobility_igraph_list_MA_RI_CT_10k[[9]])
 
-plot(st_geometry(MA_RI_county_shape), border = "black")
+
 # igraph::as_data_frame(what="edges")
+layout_MA_RI <- cent_coord_MA_RI[match(MA_RI_CT_10k_county_index$county_fips,rownames(cent_coord_MA_RI)),]
+stage_1_GNAR_MA_RI <- GNARtoigraph(mobility_max_MA_RI_CT_10k_GNAR, stage = 1)
+V(stage_1_GNAR_MA_RI)$name<- V(mobility_igraph_list_MA_RI_CT_10k[[9]])$name
+plot(st_geometry(MA_RI_county_shape), border = "black")
 
 plot(
-  GNARtoigraph(mobility_max_MA_RI_CT_10k_GNAR, stage = 1),
+  stage_1_GNAR_MA_RI,
   rescale = F,
   add = T,
-  layout = cent_coord_MA_RI,
-  vertex.label = NA,
-  vertex.size = 3,
+  layout = layout_MA_RI,
+  vertex.label = MA_RI_CT_10k_county_index$county_fips,
+  vertex.size = 1,
   edge.width = 2,
   edge.arrow.width = 0.5,
   edge.arrow.size = 0.3,
@@ -249,13 +257,24 @@ plot(
   edge.curved = 0.3
 )
 
-plot(st_geometry(MA_RI_county_shape), border = "black")
-Suffolk_neighbors <- neighborhood(
-  graph = GNARtoigraph(mobility_max_MA_RI_CT_10k_GNAR, stage = 1),
-  nodes = c("13")
-)
-# plot(GNARtoigraph(mobility_max_MA_RI_CT_10k_GNAR, stage=2), rescale=F, add=T, layout=cent_coord_MA_RI, vertex.label=NA, vertex.size=3, edge.width=2, edge.arrow.width=0.5, edge.arrow.size=0.3, vertex.color="black", edge.curved=0.3)
 
+stage_1_nb_graph_GNAR_MA_RI<-  make_neighborhood_graph(stage_1_GNAR_MA_RI, order = 1, mindist = 1)
+names(stage_1_nb_graph_GNAR_MA_RI) <- V(stage_1_GNAR_MA_RI)$name
+stage_1_nb_graph_GNAR_MA_RI
+plot(st_geometry(MA_RI_county_shape), border = "black")
+plot(
+  stage_1_nb_graph_GNAR_MA_RI$`25025`,
+  rescale = F,
+  add = T,
+  layout = layout_MA_RI,
+  vertex.label = MA_RI_CT_10k_county_index$county_fips,
+  vertex.size = 1,
+  edge.width = 2,
+  edge.arrow.width = 0.5,
+  edge.arrow.size = 0.3,
+  vertex.color = "black",
+  edge.curved = 0.3,
+edge.color="red")
 # HHS Region 5 ------------------------------------------------------------
 
 HHS_5_counties <- make_fips_vec(c("IL", "IN", "MI", "MN", "OH", "WI"), US_county_shape)
