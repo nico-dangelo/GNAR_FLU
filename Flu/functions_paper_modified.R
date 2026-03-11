@@ -233,11 +233,12 @@ create_network_max_GNAR <- function(edge_df_list,target_counties,ts_df=county_fl
   # create GNAR objects
   network_max_GNAR <- network_igraph_max |> igraph::simplify() |> GNAR::igraphtoGNAR()
   # network_min_GNAR <- network_igraph_min |> igraph::simplify() |> GNAR::igraphtoGNAR()
+  upper_limit_GNAR <- igraph::diameter(network_igraph_max)
   # create time series objects
   ts_df_network_max <- ts_df |> filter(county_fips %in% V(network_igraph_max)$name) |> filter(season==s) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
   # ts_df_network_min <- ts_df |> filter(county_fips %in% V(network_igraph_min)$name, season==season) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
   ts_network_max <- as.matrix(ts_df_network_max)
-  return(list(network_max_GNAR=network_max_GNAR, ts_network_max=ts_network_max))}
+  return(list(network_max_GNAR=network_max_GNAR, ts_network_max=ts_network_max, upper_limit=upper_limit_GNAR))}
 
 
 create_network_min_GNAR <- function(edge_df_list,target_counties,ts_df=county_flu_ac_season_norm, season="2018-2019"){
