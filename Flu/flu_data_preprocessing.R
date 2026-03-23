@@ -51,15 +51,13 @@ county_season_ac_v3_imputed <- readr::read_csv("Data/Flu/county_season_ac_v3_imp
 
 # Note: old season = July to June; partition weekly data with season flag
 # new season: November to March to limit zeros in fit
-county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season = ifelse(
-  month(year_week_dt) >= 11,
-  paste0(year(year_week_dt), "-", year(year_week_dt) + 1),      # Nov-Dec: "2023-2024"
-  ifelse(
-    month(year_week_dt) <= 3,
-    paste0(year(year_week_dt) - 1, "-", year(year_week_dt)),    # Jan-Mar: "2023-2024"
-    NA_character_
-  )
-))
+county_flu_ac_season <- county_week_flu_ac_merged_adj %>% mutate(season =
+                                                                   ifelse(
+                                                                     month(year_week_dt) >= 7,
+                                                                     paste0(year(year_week_dt), "-", year(year_week_dt) + 1),
+                                                                     # e.g., "2023-2024"
+                                                                     paste0(year(year_week_dt) - 1, "-", year(year_week_dt))
+                                                                   ))
 
 county_flu_ac_season_merged <- merge.data.frame(county_flu_ac_season, county_season_ac_v3_imputed)
 
