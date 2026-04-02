@@ -9,8 +9,10 @@ library(xtable)
 mobility_df_list <- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list.rds")
 flu_ts_df_restricted <- county_flu_ac_season_norm |> filter(season=="2018-2019", county_fips %in% V(mobility_igraph_list[[10]])$name) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  
 flu_ts_restricted <- as.matrix(flu_ts_df_restricted)
-county_flu_ac_season_norm_10k<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
-
+county_flu_ac_season_norm<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Flu/county_flu_ac_season_norm.RDS")
+co_est2020_alldata_clean_10k <- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/co_est2020_alldata_clean_10k.RDS")
+county_flu_ac_season_norm_10k <-county_flu_ac_season_norm |> filter(county_fips %in% co_est2020_alldata_clean_10k$FIPS)
+# saveRDS(county_flu_ac_season_norm_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Flu/county_flu_ac_season_norm_10k.RDS")
 mobility_df_list_10k <- mobility_df_list |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% county_flu_ac_season_norm_10k$county_fips, destination %in% county_flu_ac_season_norm_10k$county_fips)})
 
 #full country model, need mobility_missingness script!
@@ -24,22 +26,23 @@ mobility_df_list_10k <- mobility_df_list |> lapply(function(X){X|> select(origin
 # logLik(mobility_10k_restricted_GNAR_fit)
 
 # New England population-restricted season model --------------------------
-county_flu_ac_season_norm_10k<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
-county_pop_2024 <- read_csv("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_population_with_fips.csv")
+# county_flu_ac_season_norm_10k<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_flu_ac_season_norm_10k.RDS")
+# county_pop_2024 <- read_csv("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/county_population_with_fips.csv")
+co_est2020_NENG_10k <- readRDS("~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/co_est2020_alldata_clean_10k.RDS")
 NEng_counties <- make_fips_vec(c("MA", "RI", "CT", "VT", "NH", "ME"), county_shape = US_county_shape)
-# flu_ts_df_NEng_10k_restricted <- county_flu_ac_season_norm_10k |> filter(season=="2018-2019", county_fips %in% NEng_counties) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
-# flu_ts_NEng_10k_restricted <- as.matrix(flu_ts_df_NEng_10k_restricted)
-# mobility_df_list_NEng_10k <- mobility_df_list_10k |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties) })
-# mobility_igraph_list_NEng_10k <- mobility_df_list_NEng_10k |> lapply(function(X){X |> select(origin, destination) |> graph_from_data_frame()|> igraph::simplify()})
-# mobility_igraph_list_NEng_10k |> lapply(gorder) |> unlist() |> which.max()
-# mobility_igraph_list_NEng_10k |> lapply(gsize) |> unlist() |> which.max()
+flu_ts_df_NEng_10k_restricted <- county_flu_ac_season_norm_10k |> filter(season=="2018-2019", county_fips %in% NEng_counties) |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
+flu_ts_NEng_10k_restricted <- as.matrix(flu_ts_df_NEng_10k_restricted)
+mobility_df_list_NEng_10k <- mobility_df_list_10k |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% NEng_counties, destination %in% NEng_counties) })
+mobility_igraph_list_NEng_10k <- mobility_df_list_NEng_10k |> lapply(function(X){X |> select(origin, destination) |> igraph::graph_from_data_frame()|> igraph::simplify()})
+mobility_igraph_list_NEng_10k |> lapply(gorder) |> unlist() |> which.max()
+mobility_igraph_list_NEng_10k |> lapply(gsize) |> unlist() |> which.max()
 #11 
-# mobility_GNAR_NEng_10k_restricted <- igraphtoGNAR(mobility_igraph_list_NEng_10k[[11]])
-mobility_max_NEng_10k_restricted_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_10k, target_counties = NEng_counties)
-mobility_max_NEng_10k_restricted_GNAR_fit <- GNARfit(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
-GNARtoigraph(mobility_max_NEng_10k_restricted_GNAR[[1]]) |> diameter()
+mobility_GNAR_NEng_10k_restricted <- igraphtoGNAR(mobility_igraph_list_NEng_10k[[11]])
+# mobility_max_NEng_10k_restricted_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_10k, target_counties = NEng_counties)
+mobility_max_NEng_10k_restricted_GNAR_fit <- GNARfit(vts=flu_ts_NEng_10k_restricted, net=mobility_GNAR_NEng_10k_restricted)
+# GNARtoigraph(mobility_max_NEng_10k_restricted_GNAR[[1]]) |> diameter()
 # vcov(mobility_max_NEng_10k_restricted_GNAR_fit) |> corrplot::corrplot()
-# summary(mobility_max_NEng_10k_restricted_GNAR_fit)
+summary(mobility_max_NEng_10k_restricted_GNAR_fit)
 # GNARfit_sandwich(vts=mobility_max_NEng_10k_restricted_GNAR[[2]], net=mobility_max_NEng_10k_restricted_GNAR[[1]])
 # sandwich(mobility_max_NEng_10k_restricted_GNAR_fit)
 # sandwich::vcovHAC(mobility_max_NEng_10k_restricted_GNAR_fit)
@@ -50,7 +53,8 @@ local_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2)
 node_relevance_plot(network=mobility_GNAR_NEng_10k_restricted, r_star=2, node_names = V(mobility_igraph_list_NEng_10k[[11]])$name)
 #investigate county 23021, Piscataquis County, Maine remove counties below 20k
 # NEng_counties_20k <- NEng_counties[NEng_counties!="23021"]
-NEng_counties_20k<- county_pop_2024 %>% filter(`2020`>20000) |> select(FIPS, County) |> filter(FIPS %in% NEng_counties | grepl("Connecticut", County))  |> pull()
+# NEng_counties_20k<- county_pop_2024 %>% filter(`2020`>20000) |> select(FIPS, County) |> filter(FIPS %in% NEng_counties | grepl("Connecticut", County))  |> pull()
+co_est2020_NENG_20k <- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/co_est2020_NENG_20k.RDS")
 flu_ts_df_NEng_20k_restricted <- county_flu_ac_season_norm |> filter(county_fips %in% NEng_counties_20k$FIPS, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
 flu_ts_NEng_20k_restricted <- as.matrix(flu_ts_df_NEng_20k_restricted)
 mobility_df_list_NEng_20k <- mobility_df_list_NEng_10k |> lapply(function(X){X|> select(origin,destination) |> filter(origin %in% NEng_counties_20k$FIPS, destination %in% NEng_counties_20k$FIPS)})
@@ -214,7 +218,7 @@ active_node_plot(vts=flu_ts_NEng, max_lag=2, r_stages = c(1,0), network=mobility
 node_relevance_plot(mobility_GNAR_NEng, r_star=2)
 glob_index_NENG <- node_relevance_plot(mobility_GNAR_NEng, r_star=2)[[2]] 
 glob_index_NENG$Node <- NEng_county_index[match(glob_index_NENG$Node, NEng_county_index$index), "county_fips"]
-
+?viridis::viridis()
 # Plot network coloured by globindex --------------------------------------
 plot(st_geometry(NEng_county_shape))
 plot(stage_1_GNAR_NEng,
@@ -233,11 +237,11 @@ mobility_igraph_list_MA_RI_CT <- mobility_df_list_MA_RI_CT |> lapply(graph_from_
 mobility_igraph_list_MA_RI_CT |> lapply(gorder) |> unlist()
 mobility_igraph_list_MA_RI_CT |> lapply(gsize) |> unlist() |> which.max()
 flu_ts_df_MA_RI_CT <- county_flu_ac_season_norm|> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[11]])$name, season=="2018-2019") |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips %in% V(mobility_igraph_list_MA_RI_CT[[9]])$name)|> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")
-flu_ts_MA_RI_CT <- as.matrix(flu_ts_df_MA_RI_CT_restricted)
+flu_ts_MA_RI_CT <- as.matrix(flu_ts_df_MA_RI_CT)
 
 mobility_max_MA_RI_CT_GNAR <- mobility_igraph_list_MA_RI_CT[[11]] |> igraph::simplify() |> igraphtoGNAR()
 # mobility_max_MA_RI_CT_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list, target_counties = MA_RI_CT_counties)
-# mobility_max_MA_RI_CT_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_MA_RI_CT_GNAR[[1]], upper_limit = mobility_max_MA_RI_CT_GNAR[[3]], vts=mobility_max_MA_RI_CT_GNAR[[2]], globalalpha = T )
+mobility_max_MA_RI_CT_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_MA_RI_CT_GNAR, upper_limit = mobility_max_MA_RI_CT_GNAR|> GNARtoigraph()|> diameter(), vts=flu_ts_MA_RI_CT, globalalpha = T )
 # return_best_model(mobility_max_MA_RI_CT_GNAR_fit_many)
 #34
 mobility_max_MA_RI_CT_GNAR_fit_many[34,"name"]
@@ -268,7 +272,7 @@ globindex_MA_RI_CT<- node_relevance_plot(network = mobility_max_MA_RI_CT_GNAR, r
 local_relevance_plot(network = mobility_max_MA_RI_CT_GNAR, r_star=1)
 
 #10k population restriction
-MA_RI_CT_counties_10k <- county_pop_2024 %>% filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS) |> filter(FIPS %in% MA_RI_CT_counties)  |> pull()
+MA_RI_CT_counties_10k <- co_est2020_alldata_clean_10k |> filter(FIPS %in% MA_RI_CT_counties) |> select(FIPS)|>  pull()
 mobility_df_list_MA_RI_CT_10k <- mobility_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% MA_RI_CT_counties_10k, destination %in% MA_RI_CT_counties_10k)})
 mobility_igraph_list_MA_RI_CT_10k <- mobility_df_list_MA_RI_CT_10k |> lapply(graph_from_data_frame)
 mobility_igraph_list_MA_RI_CT_10k |> lapply(gorder) |> unlist()
@@ -340,9 +344,10 @@ plot(
   edge.curved = 0.3,
 edge.color="red")
 # HHS Region 5 ------------------------------------------------------------
-
+co_est2020_HHS_5_10k <- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/co_est2020_HHS_5_10k.RDS")
 HHS_5_counties <- make_fips_vec(c("IL", "IN", "MI", "MN", "OH", "WI"), US_county_shape)
-HHS_5_counties_10k <- county_pop_2024 |> filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS) |> filter(FIPS %in% HHS_5_counties) |> pull()
+# HHS_5_counties_10k <- county_pop_2024 |> filter_at(vars(contains("20")), all_vars(.>10000)) |> select(FIPS) |> filter(FIPS %in% HHS_5_counties) |> pull()
+HHS_5_counties_10k <- co_est2020_HHS_5_10k$FIPS
 mobility_df_list_HHS_5_10k <- mobility_df_list |> lapply(function(B){B|> select(origin, destination) |> filter(origin %in% HHS_5_counties_10k, destination %in% HHS_5_counties_10k)})
 mobility_igraph_list_HHS_5_10k <- mobility_df_list_HHS_5_10k |> lapply(graph_from_data_frame)
 mobility_igraph_list_HHS_5_10k |> lapply(gorder) |> unlist()
@@ -359,7 +364,7 @@ flu_ts_df_HHS_5_10k_restricted <- county_flu_ac_season_norm |> filter(county_fip
 flu_ts_HHS_5_10k_restricted <- as.matrix(flu_ts_df_HHS_5_10k_restricted)
 mobility_max_HHS_5_10k_restricted_GNAR <- mobility_igraph_list_HHS_5_10k[[10]] |> igraph::simplify() |> igraphtoGNAR()
 corbit_plot(vts=flu_ts_HHS_5_10k_restricted, net=mobility_max_HHS_5_10k_restricted_GNAR, max_lag=10, max_stage = diameter(mobility_igraph_list_HHS_5_10k[[10]]), rectangular_plot = "square")
-mobility_max_HHS_5_10k_restricted_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,10), net=mobility_max_HHS_5_10k_restricted_GNAR, upper_limit = diameter(mobility_igraph_list_HHS_5_10k[[10]]), globalalpha = T, vts = flu_ts_HHS_5_10k_restricted)
+mobility_max_HHS_5_10k_restricted_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = seq(1,6), net=mobility_max_HHS_5_10k_restricted_GNAR, upper_limit = diameter(mobility_igraph_list_HHS_5_10k[[10]]), globalalpha = T, vts = flu_ts_HHS_5_10k_restricted)
 mobility_max_HHS_5_10k_restricted_GNAR_fit <- GNARfit(vts=flu_ts_HHS_5_10k_restricted, net=mobility_max_HHS_5_10k_restricted_GNAR)
 #singular
 #1-lag once difference HHS 5 series
@@ -401,28 +406,174 @@ GNAR::cross_correlation_plot(2, HHS_5_counties_150k_GNAR[[2]])
 
 # Filter counties by both 2020 population and all-cause threshold --------
 
-county_flu_ac_season_norm_pop_10k_ac_10k <- county_flu_ac_season_norm_10k |> filter(all_cause_wtd>10000)
-counties_pop_10k_ac_10k <- county_flu_ac_season_norm_pop_10k_ac_10k$county_fips |> unique()
-mobility_df_list_pop_10k_ac_10k <- mobility_df_list_10k |> lapply(function(X){X|> filter(origin %in% counties_pop_10k_ac_10k, destination %in% counties_pop_10k_ac_10k)})
-mobility_max_pop_10k_ac_10k_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_pop_10k_ac_10k, target_counties = counties_pop_10k_ac_10k)                                                                 
-mobility_max_pop_10k_ac_10k_GNAR_fit <- GNARfit(vts=mobility_max_pop_10k_ac_10k_GNAR[[1]], net=mobility_max_pop_10k_ac_10k_GNAR[[2]])
-summary(mobility_max_pop_10k_ac_10k_GNAR_fit)
+# county_flu_ac_season_norm_pop_10k_ac_10k <- county_flu_ac_season_norm_10k |> filter(all_cause_wtd>10000)
+# counties_pop_10k_ac_10k <- county_flu_ac_season_norm_pop_10k_ac_10k$county_fips |> unique()
+# mobility_df_list_pop_10k_ac_10k <- mobility_df_list_10k |> lapply(function(X){X|> filter(origin %in% counties_pop_10k_ac_10k, destination %in% counties_pop_10k_ac_10k)})
+# mobility_max_pop_10k_ac_10k_GNAR <- create_network_max_GNAR(edge_df_list = mobility_df_list_pop_10k_ac_10k, target_counties = counties_pop_10k_ac_10k)                                                                 
+# mobility_max_pop_10k_ac_10k_GNAR_fit <- GNARfit(vts=mobility_max_pop_10k_ac_10k_GNAR[[1]], net=mobility_max_pop_10k_ac_10k_GNAR[[2]])
+# summary(mobility_max_pop_10k_ac_10k_GNAR_fit)
 
 #pop and ac 20k
 # county_pop_2020_20k <- county_pop_2024|> filter(`2020`>20000) |> pull(FIPS)
-county_flu_ac_season_norm_pop_20k_ac_20k <- county_flu_ac_season_norm |> filter( season=="2018-2019" & all_cause_wtd>20000 & county_fips %in% county_pop_2024_20k)
-counties_pop_20k_ac_20k <- county_flu_ac_season_norm_pop_20k_ac_20k$county_fips
-mobility_df_list_pop_20k_ac_20k <- mobility_df_list |> lapply(function(X){X|> filter(origin %in% counties_pop_20k_ac_20k & destination %in% counties_pop_20k_ac_20k )})
-mobility_igraph_list_pop_20k_ac_20k <- mobility_df_list_pop_20k_ac_20k |> lapply(function(X){X|> igraph::graph_from_data_frame() |> igraph::simplify()})
-mobility_igraph_list_pop_20k_ac_20k |> lapply(gorder) |> unlist() 
-mobility_max_pop_20k_ac_20_graph_index <-  mobility_igraph_list_pop_20k_ac_20k |> lapply(gsize) |> unlist() |> which.max()
-mobility_max_pop_20k_ac_20_graph <- mobility_igraph_list_pop_20k_ac_20k[[mobility_max_pop_20k_ac_20_graph_index]]
-mobility_max_pop_20k_ac_20_GNAR <- igraphtoGNAR(mobility_max_pop_20k_ac_20_graph)
-county_flu_ac_season_norm_pop_20k_ac_20k_ts <- county_flu_ac_season_norm_pop_20k_ac_20k |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips%in% V(mobility_max_pop_20k_ac_20_graph)$name) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") |> as.matrix()
-
+# county_flu_ac_season_norm_pop_20k_ac_20k <- county_flu_ac_season_norm |> filter( season=="2018-2019" & all_cause_wtd>20000 & county_fips %in% county_pop_2024_20k)
+# counties_pop_20k_ac_20k <- county_flu_ac_season_norm_pop_20k_ac_20k$county_fips
+# mobility_df_list_pop_20k_ac_20k <- mobility_df_list |> lapply(function(X){X|> filter(origin %in% counties_pop_20k_ac_20k & destination %in% counties_pop_20k_ac_20k )})
+# mobility_igraph_list_pop_20k_ac_20k <- mobility_df_list_pop_20k_ac_20k |> lapply(function(X){X|> igraph::graph_from_data_frame() |> igraph::simplify()})
+# mobility_igraph_list_pop_20k_ac_20k |> lapply(gorder) |> unlist() 
+# mobility_max_pop_20k_ac_20_graph_index <-  mobility_igraph_list_pop_20k_ac_20k |> lapply(gsize) |> unlist() |> which.max()
+# mobility_max_pop_20k_ac_20_graph <- mobility_igraph_list_pop_20k_ac_20k[[mobility_max_pop_20k_ac_20_graph_index]]
+# mobility_max_pop_20k_ac_20_GNAR <- igraphtoGNAR(mobility_max_pop_20k_ac_20_graph)
+# county_flu_ac_season_norm_pop_20k_ac_20k_ts <- county_flu_ac_season_norm_pop_20k_ac_20k |> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips%in% V(mobility_max_pop_20k_ac_20_graph)$name) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") |> as.matrix()
+# 
 
 # Filter my season ac rather than raw ---------------------------------------
-county_pop_2020_20k <- county_pop_2024|> filter(`2020`>20000) |> pull(FIPS)
-county_flu_ac_season_norm_pop_20k_season_ac_10k<- county_flu_ac_season_norm|> filter( season=="2018-2019", county_fips %in% county_pop_2020_20k & season_all_cause>10000)
-sum(is.na(county_flu_ac_season_norm_pop_20k_season_ac_10k))
-county_flu_ac_season_norm_pop_20k_yac_10k_ts <- county_flu_ac_season_norm_pop_20k_season_ac_10k |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") |> as.matrix()
+# county_pop_2020_20k <- county_pop_2024|> filter(`2020`>20000) |> pull(FIPS)
+co_est2020_alldata_clean_20k<- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Population/co_est2020_alldata_clean_20k.RDS")
+
+# Season all-cause at least 5k, population at least 10k
+
+county_flu_ac_season_norm_10k_ac_5k <- county_flu_ac_season_norm_10k |> filter(season_all_cause_wtd>5000, season=="2018-2019")
+mobility_df_list_10k_ac_5k <- mobility_df_list_10k |> lapply(function(X){X|> select(origin, destination)|> filter(origin %in% county_flu_ac_season_norm_10k_ac_5k$county_fips, destination %in% county_flu_ac_season_norm_10k_ac_5k$county_fips)})
+mobility_igraph_list_10k_ac_5k <- mobility_df_list_10k_ac_5k |> lapply(function(Y){Y|> igraph::graph_from_data_frame()|> igraph::simplify() })
+mobility_igraph_list_10k_ac_5k_max_index <- mobility_igraph_list_10k_ac_5k |> lapply(igraph::gsize) |> unlist() |> which.max()
+mobility_igraph_list_10k_ac_5k |> lapply(igraph::gorder) |> unlist() 
+mobility_igraph_list_10k_ac_5k_graph <- mobility_igraph_list_10k_ac_5k[[mobility_igraph_list_10k_ac_5k_max_index]]
+mobility_igraph_list_10k_ac_5k_GNAR <- mobility_igraph_list_10k_ac_5k_graph |> igraph::simplify() |> igraphtoGNAR()
+
+flu_ts_df_10k_ac_5k <- county_flu_ac_season_norm_10k_ac_5k|> select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips%in% V(mobility_igraph_list_10k_ac_5k_graph)$name) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt") 
+flu_ts_10k_ac_5k <- as.matrix(flu_ts_df_10k_ac_5k)
+mobility_igraph_list_10k_ac_5k_GNAR_fit <- GNARfit(vts=flu_ts_10k_ac_5k, net=mobility_igraph_list_10k_ac_5k_GNAR, alphaOrder = 1, betaOrder = c(1))
+summary(mobility_igraph_list_10k_ac_5k_GNAR_fit)
+
+
+# NENG --------------------------------------------------------------------
+county_flu_ac_season_norm_10k_ac_5k_NENG <- county_flu_ac_season_norm_10k_ac_5k |> filter(county_fips %in% NEng_counties)
+mobility_df_list_10k_ac_5k_NENG <- mobility_df_list_10k_ac_5k |> lapply(function(X){X|> select(origin, destination)|>  filter(origin %in% county_flu_ac_season_norm_10k_ac_5k_NENG$county_fips, destination %in% county_flu_ac_season_norm_10k_ac_5k_NENG$county_fips)})
+mobility_igraph_list_10k_ac_5k_NENG <- mobility_df_list_10k_ac_5k_NENG |> lapply(function(X){X|> igraph::graph_from_data_frame() |> igraph::simplify()})
+mobility_igraph_list_10k_ac_5k_NENG_index<- mobility_igraph_list_10k_ac_5k_NENG |> lapply(igraph::gsize) |> unlist()|> which.max()
+#11
+mobility_10k_ac_5k_NENG_graph<- mobility_igraph_list_10k_ac_5k_NENG[[mobility_igraph_list_10k_ac_5k_NENG_index]]
+flu_ts_df_10k_ac_5k_NENG <- county_flu_ac_season_norm_10k_ac_5k_NENG |>  select(county_fips, year_week_dt, conf_flu_norm) |> filter(county_fips%in% V(mobility_10k_ac_5k_NENG_graph)$name) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  
+mobility_10k_ac_5k_NENG_GNAR <- igraphtoGNAR(mobility_10k_ac_5k_NENG_graph)
+flu_ts_10k_ac_5k_NENG <- as.matrix(flu_ts_df_10k_ac_5k_NENG)
+# summary(GNARfit(vts=flu_ts_10k_ac_5k_NENG, net=mobility_10k_ac_5k_NENG_GNAR, alphaOrder = 15, betaOrder = rep(1,15) ))
+corbit_plot(vts=flu_ts_10k_ac_5k_NENG, net = mobility_10k_ac_5k_NENG_GNAR, max_lag = 15, max_stage = 2, rectangular_plot = "yes")
+corbit_plot(vts=flu_ts_10k_ac_5k_NENG, net = mobility_10k_ac_5k_NENG_GNAR, max_lag = 15, max_stage = 2, rectangular_plot = "yes", partial = "yes")
+flu_ts_10k_ac_5k_NENG_diff <- diff(flu_ts_10k_ac_5k_NENG) |> log1p()
+summary(GNARfit(vts=flu_ts_10k_ac_5k_NENG_diff, net=mobility_10k_ac_5k_NENG_GNAR, alphaOrder = 1, betaOrder = 2 ))
+# plot.ts(flu_ts_10k_ac_5k_NENG_diff[,1:10])
+#cross-correlation matrix
+cor_matrix_NENG_10k_ac_5k <-cor(flu_ts_10k_ac_5k_NENG)
+diag_index
+colnames(cor_matrix_NENG_10k_ac_5k)[apply(cor_matrix_NENG_10k_ac_5k, 2, function(x) any(abs(x) < 0.5 & abs(x)!=1))]
+
+
+
+
+
+
+# Multi-season slices -----------------------------------------------------
+# Limit fit to November to March ------------------------------------------
+
+#named by end year
+county_flu_ac_season_norm_10k_ac_5k_2018_2021 <- county_flu_ac_season_norm_10k |> filter(season_fit %in% c("2018-2019","2019-2020", "2020-2021") & season_all_cause_wtd>5E3)
+county_flu_ac_season_norm_10k_ac_5k_2019 <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(season_fit=="2018-2019") 
+county_flu_ac_season_norm_10k_ac_5k_2020 <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(season_fit=="2019-2020")  
+county_flu_ac_season_norm_10k_ac_5k_2021 <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(season_fit=="2020-2021")  
+
+  # NENG --------------------------------------------------------------------
+county_flu_ac_season_norm_10k_ac_5k_2018_2021_NENG <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(county_fips %in% NEng_counties)
+county_flu_ac_season_norm_10k_ac_5k_2019_NENG <- county_flu_ac_season_norm_10k_ac_5k_2019 |> filter(county_fips %in% NEng_counties)
+county_flu_ac_season_norm_10k_ac_5k_2020_NENG <- county_flu_ac_season_norm_10k_ac_5k_2020 |> filter(county_fips %in% NEng_counties)
+county_flu_ac_season_norm_10k_ac_5k_2021_NENG <- county_flu_ac_season_norm_10k_ac_5k_2021|> filter(county_fips %in% NEng_counties)
+
+#time series NENG
+flu_ts_10k_ac_5k_2018_2021_NENG <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  |> as.matrix()
+flu_ts_10k_ac_5k_2019_NENG<- county_flu_ac_season_norm_10k_ac_5k_2019_NENG |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  |> as.matrix()
+flu_ts_10k_ac_5k_2020_NENG <- county_flu_ac_season_norm_10k_ac_5k_2020_NENG |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  |> as.matrix()
+flu_ts_10k_ac_5k_2021_NENG <- county_flu_ac_season_norm_10k_ac_5k_2021_NENG |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  |> as.matrix()
+
+#note that 55017 drops out from 2019-2020 onward with 5k ac threshold!
+#fix by using initial dataframe over all years for filtering
+#network objects
+
+mobility_igraph_list_10k_ac_5k_NENG_2018_2021 <- mobility_df_list |> lapply(function(X){X |> filter(origin %in% county_flu_ac_season_norm_10k_ac_5k_2018_2021_NENG$county_fips, destination %in%county_flu_ac_season_norm_10k_ac_5k_2018_2021_NENG$county_fips)  |> igraph::graph_from_data_frame()})
+# mobility_igraph_list_10k_ac_5k_NENG_2018_2021
+mobility_10k_ac_5k_NENG_2018_2021_GNAR <- mobility_igraph_list_10k_ac_5k_NENG_2018_2021[[11]] |> igraph::simplify() |> igraphtoGNAR()
+
+#r-corbit plot
+# flu_ts_10k_ac_5k_2019_NENG<- cbind(flu_ts_10k_ac_5k_2019_NENG, rep(NA, nrow(flu_ts_10k_ac_5k_2019_NENG)))
+# colnames(flu_ts_10k_ac_5k_2019_NENG)[64] <- "50017"
+# r_corbit_plot(vts_frames = list(flu_ts_10k_ac_5k_2019_NENG,flu_ts_10k_ac_5k_2020_NENG,flu_ts_10k_ac_5k_2021_NENG), network_list = list(mobility_10k_ac_5k_NENG_2018_2021_GNAR), max_lag = 2, max_stage = 2, frame_names = c("2018-2019","2019-2020","2020-2021"), weight_matrices = list(weights_matrix(mobility_10k_ac_5k_NENG_2018_2021_GNAR)), same_net = "yes")
+
+# Redo with Nov-Mar only -------------------------------------------------
+#NENG 2018-2019
+mobility_10k_ac_5k_NENG_GNAR_Nov_Mar_fit <- GNARfit(vts=flu_ts_10k_ac_5k_2019_NENG, net=mobility_10k_ac_5k_NENG_2018_2021_GNAR)
+flu_ts_10k_ac_5k_2019_NENG|> cor() |> corrplot::corrplot()
+#drop counties with low correlation contribution
+flu_ts_10k_ac_5k_2019_NENG_cor <- flu_ts_10k_ac_5k_2019_NENG|> cor()
+hist(flu_ts_10k_ac_5k_2019_NENG_cor)
+diag(flu_ts_10k_ac_5k_2019_NENG_cor) <- NA
+cor_matrix_flu_ts_10k_ac_5k_2019_NENG_filter <- apply(flu_ts_10k_ac_5k_2019_NENG_cor,2,function(col){all(abs(col)>=0.01, na.rm = TRUE)})
+cor_matrix_flu_ts_10k_ac_5k_2019_NENG_keep <- names(cor_matrix_flu_ts_10k_ac_5k_2019_NENG_filter)[cor_matrix_flu_ts_10k_ac_5k_2019_NENG_filter==TRUE]
+flu_ts_10k_ac_5k_2019_NENG_filtered <- flu_ts_10k_ac_5k_2019_NENG[,cor_matrix_flu_ts_10k_ac_5k_2019_NENG_keep, drop=FALSE]
+
+#  MA,RI,CT ---------------------------------------------------------------
+
+
+county_flu_ac_season_norm_10k_ac_5k_2019_MA_RI_CT <- county_flu_ac_season_norm_10k_ac_5k_2019 |> filter(county_fips %in% MA_RI_CT_counties)
+flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019 <- county_flu_ac_season_norm_10k_ac_5k_2019_MA_RI_CT  |> select(county_fips, year_week_dt, conf_flu_norm) |> spread(county_fips, conf_flu_norm) |> column_to_rownames(var="year_week_dt")  |> as.matrix()
+mobility_df_list_10k_ac_5k_MA_RI_CT <- mobility_df_list |> lapply(function(X){X|> filter(origin %in% county_flu_ac_season_norm_10k_ac_5k_2019_MA_RI_CT$county_fips, destination%in% county_flu_ac_season_norm_10k_ac_5k_2019_MA_RI_CT$county_fips)}) 
+mobility_igraph_list_10k_ac_5k_MA_RI_CT<- mobility_df_list_10k_ac_5k_MA_RI_CT |> lapply(function(X){X|> graph_from_data_frame() |> igraph::simplify()})
+mobility_igraph_list_10k_ac_5k_MA_RI_CT |> lapply(gsize) |> unlist() 
+mobility_igraph_list_10k_ac_5k_MA_RI_CT |> lapply(gorder) |> unlist()
+mobility_10k_ac_5k_MA_RI_CT_GNAR_Nov_Mar<- mobility_igraph_list_10k_ac_5k_MA_RI_CT[[11]] |> igraphtoGNAR()
+mobility_10k_ac_5k_MA_RI_CT_GNAR_Nov_Mar_fit <- GNARfit(vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019, net=mobility_10k_ac_5k_MA_RI_CT_GNAR_Nov_Mar, alphaOrder = 1, betaOrder = 1)
+summary(mobility_10k_ac_5k_MA_RI_CT_GNAR_Nov_Mar_fit)
+cor(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019) |> corrplot::corrplot()
+# remove low-signal counties
+MA_RI_CT_counties_10k_dropped <- MA_RI_CT_counties_10k[!MA_RI_CT_counties_10k %in% c("25007","25011","44001")]
+county_flu_ac_season_norm_10k_ac_5k_2019_MA_RI_CT_dropped <- county_flu_ac_season_norm_10k_ac_5k_2019_MA_RI_CT |> filter(county_fips %in%MA_RI_CT_counties_10k_dropped)
+flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped <- flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019[,colnames(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019) %in% MA_RI_CT_counties_10k_dropped] 
+flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped <- as.data.frame(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped) %>% mutate(time=rownames(.)|> as.Date())
+cor(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped) |> corrplot::corrplot()
+mobility_df_list_10k_ac_5k_MA_RI_CT_dropped <- mobility_df_list |> lapply(function(X){X|> filter(origin %in% colnames(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped), destination%in% colnames(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped))})
+# cor(flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped|> diff()) |> corrplot::corrplot() 
+mobility_igraph_list_10k_ac_5k_MA_RI_CT_dropped<- mobility_df_list_10k_ac_5k_MA_RI_CT_dropped |> lapply(function(X){X|> graph_from_data_frame() |> igraph::simplify()})
+mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar<- mobility_igraph_list_10k_ac_5k_MA_RI_CT_dropped[[11]] |> igraphtoGNAR()
+mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit <- GNARfit(vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, net=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, alphaOrder = 2, betaOrder = c(1,1))
+summary(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit)
+# mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit_many <-fit_and_predict_for_many(net = mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, vts =flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, upper_limit = 1, alpha_options = c(1))
+fit_and_predict(vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, net=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, alpha = 2, beta = c(1,1), forecast_window = 1, globalalpha = T, old = T, return_model = F)
+mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5<- predict(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit, n.ahead = 5) |> as.data.frame()
+colnames(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5) <- flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped |> select(-time) |> colnames()
+# compute_MASE(model=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit, counties =MA_RI_CT_counties_10k_dropped, data_df = flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, network_name = "MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped")
+# debug MASE
+mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5<- predict(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit, n.ahead = 5) |> as.data.frame()
+colnames(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5) <- flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped |> select(-time) |> colnames()
+prediction_time <- flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped[1: (nrow(flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped)-5), ] |> rownames() %>% 
+  tail(1)
+end_date <- flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped[nrow(flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped),] |> rownames()
+mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5<- mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5 |> mutate(time=seq(as.Date(prediction_time) + 7, 
+                                                                              as.Date(end_date), 
+                                                                              by = 7))
+true <- flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped[(length(flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped)-5+1):length(flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped),] %>% 
+  gather(key = "CountyName",
+         value = "true", 
+         -time)
+pred <- mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5 %>% 
+  gather(key = "CountyName",
+         value = "predicted", 
+         -time)
+check_predictions_df <- left_join(true, pred, 
+                                  by = c("CountyName", "time")) %>% 
+  mutate(res = true - predicted)
+
+
+# Try weighting adjacency matrix ------------------------------------------
+
+mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped <- mobility_df_list_10k_ac_5k_MA_RI_CT_dropped|> lapply(graph_from_data_frame)|> lapply(function(X){set_edge_attr(X,"weight",value = E(X)$Connectivity)}) |>lapply(igraphtoGNAR) 
+identical(mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped[[11]] |> weights_matrix(),
+mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar |> weights_matrix())
+#weighted fits
+mobility_igraph_list_10k_ac_5k_MA_RI_CT_dropped|> str( )
