@@ -14,11 +14,11 @@ co_est2020_alldata_clean_10k <- readRDS(file="~/Library/CloudStorage/GoogleDrive
 county_flu_ac_season_norm_10k <-county_flu_ac_season_norm |> filter(county_fips %in% co_est2020_alldata_clean_10k$FIPS)
 # saveRDS(county_flu_ac_season_norm_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Flu/county_flu_ac_season_norm_10k.RDS")
 mobility_df_list_10k <- mobility_df_list |> lapply(function(X){X|> select(origin, destination) |> filter(origin %in% county_flu_ac_season_norm_10k$county_fips, destination %in% county_flu_ac_season_norm_10k$county_fips)})
-<<<<<<< HEAD
-saveRDS(mobility_df_list_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list_10k.RDS")
-=======
 
->>>>>>> 6a411335c5651ac5a8bd7613a41a46996bdf95d8
+saveRDS(mobility_df_list_10k, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_df_list_10k.RDS")
+
+
+
 #full country model, need mobility_missingness script!
 # mobility_GNAR_restricted_fit <- GNARfit(vts=flu_ts_restricted, net=mobility_GNAR)
 # summary(mobility_GNAR_restricted_fit)
@@ -468,11 +468,10 @@ summary(GNARfit(vts=flu_ts_10k_ac_5k_NENG_diff, net=mobility_10k_ac_5k_NENG_GNAR
 # plot.ts(flu_ts_10k_ac_5k_NENG_diff[,1:10])
 #cross-correlation matrix
 cor_matrix_NENG_10k_ac_5k <-cor(flu_ts_10k_ac_5k_NENG)
-<<<<<<< HEAD
+
 # diag_index
-=======
-diag_index
->>>>>>> 6a411335c5651ac5a8bd7613a41a46996bdf95d8
+
+# diag_index
 colnames(cor_matrix_NENG_10k_ac_5k)[apply(cor_matrix_NENG_10k_ac_5k, 2, function(x) any(abs(x) < 0.5 & abs(x)!=1))]
 
 
@@ -552,11 +551,11 @@ mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar<- mobility_igraph_list_10k_ac_5
 mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit <- GNARfit(vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, net=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, alphaOrder = 2, betaOrder = c(1,1))
 summary(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit)
 # mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit_many <-fit_and_predict_for_many(net = mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, vts =flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, upper_limit = 1, alpha_options = c(1))
-<<<<<<< HEAD
+
 # fit_and_predict(vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, net=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, alpha = 2, beta = c(1,1), forecast_window = 1, globalalpha = T, old = T, return_model = F)
-=======
+
 fit_and_predict(vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, net=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar, alpha = 2, beta = c(1,1), forecast_window = 1, globalalpha = T, old = T, return_model = F)
->>>>>>> 6a411335c5651ac5a8bd7613a41a46996bdf95d8
+
 mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5<- predict(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit, n.ahead = 5) |> as.data.frame()
 colnames(mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5) <- flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped |> select(-time) |> colnames()
 # compute_MASE(model=mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_fit, counties =MA_RI_CT_counties_10k_dropped, data_df = flu_ts_df_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, network_name = "MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped")
@@ -584,17 +583,17 @@ check_predictions_df <- left_join(true, pred,
 
 # Try weighting adjacency matrix ------------------------------------------
 
-<<<<<<< HEAD
+
 mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped <- mobility_df_list_10k_ac_5k_MA_RI_CT_dropped|> lapply(graph_from_data_frame)|> lapply(igraph::simplify)|> lapply(function(X){set_edge_attr(X,"weight",value = E(X)$Connectivity)}) |>lapply(igraphtoGNAR) 
 identical(mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped[[11]] |> weights_matrix(),
 mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar |> weights_matrix())
 #weighted fits
 GNARfit(net=mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped[[11]], vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, alphaOrder = 2, betaOrder = c(1,0)) |> summary()
 fit_and_predict_for_many(alpha_options = seq(1,2), beta_options = list(0,1, c(0,1), c(1,0), c(1,1)), net =mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped[[11]], vts=flu_ts_MA_RI_CT_10k_ac_5k_Mar_Nov_2019_dropped, upper_limit = diameter(mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped[[11]]|> GNARtoigraph()), inverse_distance = TRUE)
-=======
+
 mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped <- mobility_df_list_10k_ac_5k_MA_RI_CT_dropped|> lapply(graph_from_data_frame)|> lapply(function(X){set_edge_attr(X,"weight",value = E(X)$Connectivity)}) |>lapply(igraphtoGNAR) 
 identical(mobility_weighted_GNAR_list_10k_ac_5k_MA_RI_CT_dropped[[11]] |> weights_matrix(),
 mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar |> weights_matrix())
 #weighted fits
 mobility_igraph_list_10k_ac_5k_MA_RI_CT_dropped|> str( )
->>>>>>> 6a411335c5651ac5a8bd7613a41a46996bdf95d8
+
