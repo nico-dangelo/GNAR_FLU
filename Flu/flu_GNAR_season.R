@@ -252,7 +252,7 @@ mobility_max_MA_RI_CT_GNAR_fit_many <- fit_and_predict_for_many(alpha_options = 
 #34
 mobility_max_MA_RI_CT_GNAR_fit_many[34,"name"]
 # GNAR-10-1111000000-TRUE
-# mobility_max_MA_RI_CT_GNAR_fit_best <- fit_and_predict(alpha=10, globalalpha = T, beta=c(1,1,1,1,0,0,0,0,0,0), vts=mobility_max_MA_RI_CT_GNAR[[2]], forecast_window = 5, return_model = T, net=mobility_max_MA_RI_CT_GNAR[[1]]) 
+# mobility_max_MA_RI_CT_GNAR_fit_best <- fit_and_predict(alpha=10, globalalpha = T, beta=c(1,1,1,1,0,0,0,0,0,0), vts=mobility_max_MA_RI_CT_GNAR[[2]], forecast_window = 5, return_model = T, net=mobility_max_MA_RI_CT_GNAR[[1]])
 # summary(mobility_max_MA_RI_CT_GNAR_fit_best)
 # modelsummary(models = mobility_max_MA_RI_CT_restricted_GNAR_fit_best, output = "markdown")
 # xtable(summary(mobility_max_MA_RI_CT_restricted_GNAR_fit_best))
@@ -298,7 +298,7 @@ return_best_model(mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many)
 mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many[2,"name"]
 mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best <- fit_and_predict(alpha=2, beta=c(1,0), net=mobility_max_MA_RI_CT_10k_GNAR, vts=flu_ts_MA_RI_CT_10k_restricted, return_model = T, forecast_window = 5)
 summary(mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best)
-residuals_mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best <- check_and_plot_residuals(model=mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best, data = flu_ts_MA_RI_CT_10k_restricted, alpha = 2, n_ahead = 5, counties = MA_RI_CT_counties_10k$FIPS, network_name = mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many[2,"name"] )
+residuals_mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best <- check_and_plot_residuals(model=mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best, data = flu_ts_MA_RI_CT_10k_restricted, alpha = 2, n_ahead = 5, counties = MA_RI_CT_counties_10k, network_name = mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many[2,"name"] )
 
 # plot MA, RI network -----------------------------------------------------
 
@@ -705,3 +705,13 @@ mobility_weighted_GNAR_10k_ac_5k_filtered <- igraphtoGNAR(mobility_weighted_igra
 mobility_weighted_GNAR_10k_ac_5k_filtered |> weights_matrix()
 mobility_weighted_GNAR_10k_ac_5k_filtered_fit <- GNARfit(net=mobility_weighted_GNAR_10k_ac_5k_filtered, vts=flu_ts_10k_ac_5k_2019_filtered, alphaOrder = 1, betaOrder = (1))                                                          
 summary(mobility_weighted_GNAR_10k_ac_5k_filtered_fit)
+
+
+# Census MSA/CSA Network --------------------------------------------------
+
+Metropolitan_and_Combined_Statistical_Areas <- read_csv("Data/Mobility/Metropolitan and Combined Statistical Areas.csv")
+# Make column for full county FIPS code
+Metropolitan_and_Combined_Statistical_Areas_county_fips<- Metropolitan_and_Combined_Statistical_Areas |> mutate(county_fips=paste0(`FIPS State Code`, `FIPS County Code`))
+# match to flu and mobility data
+Metropolitan_and_Combined_Statistical_Areas_county_fips_flu_matched <- Metropolitan_and_Combined_Statistical_Areas_county_fips |> filter(county_fips %in% county_flu_ac_season_norm_10k$county_fips)
+Metropolitan_and_Combined_Statistical_Areas_county_fips_flu_mobility_matched <- Metropolitan_and_Combined_Statistical_Areas_county_fips_flu_matched |> filter(county_fips %in% mobility_df_list[[11]]$origin | county_fips %in%  mobility_df_list[[11]]$destination)
