@@ -31,7 +31,8 @@ mobility_igraph_list <- readRDS("~/Library/CloudStorage/GoogleDrive-nd672@george
 mobility_weighted_igraph_list <- readRDS(file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Mobility/mobility_weighted_igraph_list.RDS")
 mobility_weighted_igraph_Nov <- mobility_weighted_igraph_list[[11]]
 mobility_weighted_GNAR_Nov <- igraphtoGNAR(mobility_weighted_igraph_Nov) 
-
+mobility_unweighted_igraph_Nov <- mobility_igraph_list[[11]]
+mobility_unweighted_GNAR_Nov <- igraphtoGNAR(mobility_unweighted_igraph_Nov)
 # Create real population time series --------------------------------------
 real_pop_norm_ts<- infected_series_real_pop_burden |> select(time, county, flu_burden) |> spread(county, flu_burden) |> column_to_rownames(var="time")|> as.matrix()
 ts_counties  <- colnames(real_pop_norm_ts)
@@ -60,3 +61,10 @@ infected_series_uniform_pop_ts_aligned <- infected_series_uniform_pop_ts[, net_c
 uniform_pop_GNAR_fit <- GNARfit(vts=infected_series_uniform_pop_ts_aligned, net=mobility_weighted_GNAR_Nov)
 summary(uniform_pop_GNAR_fit)
 #Singular
+
+# Synthetic fits with unweighted networks ---------------------------------
+
+uniform_pop_unweighted_GNAR_fit <- GNARfit(vts=infected_series_uniform_pop_ts_aligned, net=mobility_unweighted_GNAR_Nov)
+real_pop_unweighted_GNAR_fit <- GNARfit(vts=real_pop_norm_ts_aligned, net=mobility_unweighted_GNAR_Nov)
+summary(uniform_pop_unweighted_GNAR_fit)
+summary(real_pop_unweighted_GNAR_fit)
