@@ -32,7 +32,7 @@ county_year_ac_mean <- county_week_ac_v3_imputed_year %>% group_by(county_fips, 
 county_week_ac_norm <-  county_year_ac_mean %>% group_by(county_fips, year) %>% mutate(week_ac_norm =
                                                                                          all_cause_wtd / year_ac_mean)
 
-
+# saveRDS(county_week_ac_norm, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Flu/county_week_ac_norm.RDS")
 
 #merge ac with flu data by county and year_week
 
