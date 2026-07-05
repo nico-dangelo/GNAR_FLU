@@ -299,7 +299,8 @@ mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many[2,"name"]
 mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best <- fit_and_predict(alpha=2, beta=c(1,0), net=mobility_max_MA_RI_CT_10k_GNAR, vts=flu_ts_MA_RI_CT_10k_restricted, return_model = T, forecast_window = 5)
 summary(mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best)
 residuals_mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best <- check_and_plot_residuals(model=mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best, data = flu_ts_MA_RI_CT_10k_restricted, alpha = 2, n_ahead = 5, counties = MA_RI_CT_counties_10k, network_name = mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_many[2,"name"] )
-
+predict(mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best, n.ahead = 5)
+compute_MASE(model=mobility_max_MA_RI_CT_10k_restricted_GNAR_fit_best, network_name = "MA_RI_CT_10k_max", n_ahead = 5, counties = MA_RI_CT_counties_10k, data_df = flu_ts_df_MA_RI_CT_10k_restricted)
 # plot MA, RI network -----------------------------------------------------
 
 MA_RI_county_shape <- US_county_shape %>% subset(., GEOID %in% MA_RI_CT_counties_10k)
@@ -488,7 +489,7 @@ county_flu_ac_season_norm_10k_ac_5k_2018_2021 <- county_flu_ac_season_norm_10k |
 county_flu_ac_season_norm_10k_ac_5k_2019 <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(season_fit=="2018-2019") 
 county_flu_ac_season_norm_10k_ac_5k_2020 <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(season_fit=="2019-2020")  
 county_flu_ac_season_norm_10k_ac_5k_2021 <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(season_fit=="2020-2021")  
-
+# saveRDS(county_flu_ac_season_norm_10k_ac_5k_2019, file="~/Library/CloudStorage/GoogleDrive-nd672@georgetown.edu/My Drive/Lab Files/GNAR_FLU/Data/Flu/county_flu_ac_season_norm_10k_ac_5k_2019.RDS")
   # NENG --------------------------------------------------------------------
 county_flu_ac_season_norm_10k_ac_5k_2018_2021_NENG <- county_flu_ac_season_norm_10k_ac_5k_2018_2021 |> filter(county_fips %in% NEng_counties)
 county_flu_ac_season_norm_10k_ac_5k_2019_NENG <- county_flu_ac_season_norm_10k_ac_5k_2019 |> filter(county_fips %in% NEng_counties)
@@ -631,7 +632,36 @@ pred <- mobility_10k_ac_5k_MA_RI_CT_dropped_GNAR_Nov_Mar_predict_5 %>%
 check_predictions_df <- left_join(true, pred, by = c("CountyName", "time")) %>%
   mutate(res = true - predicted)
 
-
+mase_df <- data.frame("time" = as.Date(NA), 
+                      "CountyName" = NA, 
+                      "true" = NA, 
+                      "predicted" = NA, 
+                      "res" = NA, 
+                      "mase" = NA, 
+                      "type" = NA)
+for (county in counties) {
+  check_predictions_county <- check_predictions_df %>% 
+    filter(CountyName == county) 
+  
+  check_predictions_county$mase <- 0
+  
+  # compute denominator for MASE
+  denominator <- diff(check_predictions_county$true, lag = 1) %>% 
+    abs() %>% 
+    mean()
+  
+  for (i in seq(1, nrow(check_predictions_county))) {
+    # compute MASE values 
+    check_predictions_county[i, ]$mase <- abs(check_predictions_county[i, ]$res) / denominator
+  }
+  
+  check_predictions_county$type <- network_name
+  
+  mase_df <- rbind.data.frame(mase_df, 
+                              check_predictions_county)
+  
+}
+  
 # Try weighting adjacency matrix ------------------------------------------
 
 
@@ -705,6 +735,14 @@ mobility_weighted_GNAR_10k_ac_5k_filtered <- igraphtoGNAR(mobility_weighted_igra
 mobility_weighted_GNAR_10k_ac_5k_filtered |> weights_matrix()
 mobility_weighted_GNAR_10k_ac_5k_filtered_fit <- GNARfit(net=mobility_weighted_GNAR_10k_ac_5k_filtered, vts=flu_ts_10k_ac_5k_2019_filtered, alphaOrder = 1, betaOrder = (1))                                                          
 summary(mobility_weighted_GNAR_10k_ac_5k_filtered_fit)
+
+
+# NY state-level model ----------------------------------------------------
+NY_counties <- make_fips_vec("NY")
+flu_ts_df_10k_ac_5k_NY <- county_flu_ac_season_norm_10k_ac_5k|> filter(county_fips)
+
+# CA state-level model ----------------------------------------------------
+
 
 
 # Census MSA/CSA Network --------------------------------------------------
