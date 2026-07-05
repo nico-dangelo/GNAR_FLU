@@ -907,8 +907,9 @@ residual_var_covar <- function(object,...){
   stopifnot(tot.time != 0)
   tmp.resid <- residToMat(GNARobj = object, nnodes = nnodes.in)$resid
   tmp.resid[is.na(tmp.resid)] <- 0
+  tmp.resid.var.covar <- (1/tot.time) * t(tmp.resid) %*% tmp.resid
   larg <- det((1/tot.time) * t(tmp.resid) %*% tmp.resid)
-return(larg)}
+return(list(tmp.resid.var.covar,larg))}
 
 check_GNAR_singularity <- function(graph, vts, alpha=2, beta=c(1,1)){
   GNAR_object <- GNAR::igraphtoGNAR(graph)
@@ -916,3 +917,23 @@ check_GNAR_singularity <- function(graph, vts, alpha=2, beta=c(1,1)){
   is.model.singular <- ifelse(residual_var_covar(model)==0,T,F)
 return(is.model.singular)}
 
+jitter_GNAR_var_covar <- function(object,...){
+  stopifnot(is.GNARfit(object))
+  nnodes.in <- object$frbic$nnodes
+  alphas.in <- object$frbic$alphas.in
+  betas.in <- object$frbic$betas.in
+  fact.var <- object$frbic$fact.var
+  tot.time <- object$frbic$time.in
+  globalalpha <- object$frbic$globalalpha
+  var_covar <- residual_var_covar(object)
+  #Check if jitter needed
+  threshold= 1E-3
+  min.eigen.resid.var.covar<- residual_var_covar(object)[[1]] |> eigen() %>% .$values |> min()
+  jitter <- matrix(0, nrow=nrow(residual_var_covar(object)[[1]]), ncol=ncol(residual_var_covar(object)[[1]]))
+  if(min.eigen.resid.var.covar<=threshold){
+  jitter <- (threshold- min.eigen.resid.var.covar)*diag(nrow(residual_var_covar(object)[[1]]))
+
+resid.var.covar.jittered <- residual_var_covar(object)[[1]] + jitter
+}
+return(resid.var.covar.jittered)
+}
